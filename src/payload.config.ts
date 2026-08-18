@@ -17,6 +17,7 @@ import { Quotes } from '@/collections/quotes'
 import { ServiceBillings } from '@/collections/service-billings'
 import { Services } from '@/collections/services'
 import { Users } from '@/collections/users'
+import { requireConnectionString } from '@/lib/db/connection-string'
 import { BusinessSettings } from '@/globals/business-settings'
 import { InvoiceDefaults } from '@/globals/invoice-defaults'
 
@@ -67,7 +68,9 @@ export default buildConfig({
 
   db: postgresAdapter({
     pool: {
-      connectionString: process.env.DATABASE_URI,
+      // Accepts DATABASE_URI, DATABASE_URL or POSTGRES_URL, and fails with a
+      // readable message rather than ECONNREFUSED 127.0.0.1:5432.
+      connectionString: requireConnectionString(),
       // Serverless-safe default. Each warm instance keeps its own pool, so this
       // stays low even though local dev could afford more.
       max: 10,

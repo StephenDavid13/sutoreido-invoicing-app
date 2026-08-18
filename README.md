@@ -115,6 +115,7 @@ npm run bill                       # raise the first recurring invoice
 | `npm run bill` | billing run — `DRY_RUN=1` and `AS_AT=YYYY-MM-DD` supported |
 | `npm run verify` | asserts the invoicing invariants at runtime |
 | `npm run render:pdf -- <id>` | render an invoice PDF to `tmp/pdf/` |
+| `npm run db:check` | show which env var supplied the connection string |
 | `npm run typecheck` / `lint` | `tsc --noEmit` / ESLint |
 | `npm run migrate:create <name>` | generate a migration (point at the shadow DB) |
 | `npm run ci` | `payload migrate && next build` |

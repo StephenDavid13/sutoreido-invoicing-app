@@ -84,9 +84,21 @@ build, so the schema is ready when the app boots.
 Add these for **Production** (and Preview, if you use it — pointed at a *different*
 database):
 
+> **The most common first-deploy failure.** If you added the database through
+> Vercel's marketplace integration, it created **`DATABASE_URL`** (Neon) or
+> **`POSTGRES_URL`** (Vercel Postgres) — *not* `DATABASE_URI`, which is Payload's
+> convention. The config now accepts all three, in that order of precedence, so
+> either name works. But if you're on an older checkout and see
+> `ECONNREFUSED 127.0.0.1:5432`, this is why: with no connection string,
+> node-postgres silently defaults to localhost, and there is no Postgres inside a
+> Vercel function.
+>
+> **And whichever you set: redeploy.** New environment variables are not applied
+> to existing deployments.
+
 | Variable | Value |
 |---|---|
-| `DATABASE_URI` | your pooled Postgres connection string |
+| `DATABASE_URI` | your pooled Postgres connection string (or `DATABASE_URL` / `POSTGRES_URL`) |
 | `PAYLOAD_SECRET` | a fresh 32-byte hex string — **not** your local one |
 | `NEXT_PUBLIC_SERVER_URL` | `https://your-domain.vercel.app` |
 | `CRON_SECRET` | a fresh random string, ≥16 chars |
@@ -195,6 +207,14 @@ redeploy. It's used for links in emails and, later, client-portal URLs.
 ---
 
 ## Troubleshooting
+
+**`ECONNREFUSED 127.0.0.1:5432`, or "An error occurred in the Server Components
+render"** — no connection string reached the app, so node-postgres fell back to
+localhost. Check the variable is named `DATABASE_URI`, `DATABASE_URL` or
+`POSTGRES_URL`, that it's set for the environment you deployed (Production vs
+Preview), and that you **redeployed afterwards**. Run `npm run db:check` locally
+to see which variable is being picked up. Current builds fail at startup with an
+explicit message instead of the ECONNREFUSED.
 
 **`Migration failed` on build** — check `DATABASE_URI` is the pooled string and
 reachable, and that the database is empty on a first deploy. A database that
