@@ -1,0 +1,11 @@
+/*
+ * Admin-panel-only styles.
+ *
+ * Tailwind is deliberately NOT available in here. The (app) and (payload) route
+ * groups have separate root layouts, and globals.css is imported only by (app),
+ * so Tailwind's preflight reset can never reach the admin panel. Style admin
+ * tweaks with plain SCSS in this file instead.
+ *
+ * Payload wraps its own CSS in `@layer payload-default`, so anything declared
+ * here (outside a layer) already wins on the cascade without !important.
+ */
