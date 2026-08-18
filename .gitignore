@@ -39,3 +39,6 @@ npm-debug.log*
 
 # local PDF renders
 tmp/
+
+# impeccable: local, machine-specific consent and overrides
+.impeccable/config.local.json

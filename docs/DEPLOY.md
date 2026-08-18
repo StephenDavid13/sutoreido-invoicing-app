@@ -216,6 +216,36 @@ Preview), and that you **redeployed afterwards**. Run `npm run db:check` locally
 to see which variable is being picked up. Current builds fail at startup with an
 explicit message instead of the ECONNREFUSED.
 
+**`relation "users" does not exist` (Postgres `42P01`)** — the database is
+connected but empty, so migrations never ran against it. Three causes, in order of
+likelihood:
+
+1. **The Build Command is still `next build`.** It must be `npm run ci`
+   (`payload migrate && next build`). Vercel's default does not migrate.
+2. **`src/migrations/` was not committed**, or the deployment predates it. With no
+   migration files, `payload migrate` succeeds while doing nothing.
+3. **Migrations ran against a different database** than the runtime uses — check
+   for a Neon preview branch, or `DATABASE_URI` and `DATABASE_URL` pointing at
+   different places.
+
+Diagnose by pointing `migrate:status` at the production database — it lists every
+migration and whether it has run:
+
+```bash
+DATABASE_URI="<prod connection string>" npm run migrate:status
+```
+
+To fix it immediately without redeploying, apply the migration by hand. Use the
+**unpooled / direct** connection string: DDL through a transaction-mode pooler is
+unreliable.
+
+```bash
+DATABASE_URI="<prod UNPOOLED string>" npm run migrate
+```
+
+Expect `Migrating:` then `Migrated:`, and 30 tables afterwards. Then set the Build
+Command correctly so the next deploy handles it on its own.
+
 **`Migration failed` on build** — check `DATABASE_URI` is the pooled string and
 reachable, and that the database is empty on a first deploy. A database that
 previously ran in `push` mode carries a batch `-1` row and will refuse to migrate.
