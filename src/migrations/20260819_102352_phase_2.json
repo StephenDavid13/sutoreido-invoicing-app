@@ -3390,7 +3390,7 @@
           "name": "offset_days",
           "type": "numeric",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "state": {
           "name": "state",
@@ -6570,6 +6570,6 @@
     "tables": {},
     "columns": {}
   },
-  "id": "bd9e2e1a-1f8a-4c0d-bafb-410a4b9d7486",
+  "id": "74e37b89-5c3e-4c98-886f-23f36619ebb0",
   "prevId": "00000000-0000-0000-0000-000000000000"
 }

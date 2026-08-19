@@ -130,6 +130,41 @@ Migrated:  20260818_102951_initial
 If migrations fail, the build fails and nothing ships — which is the behaviour you
 want.
 
+### Never regenerate a migration that has already deployed
+
+**Payload matches applied migrations by filename, not by checksum.** A migration
+that has run against production is recorded in `payload_migrations` under its exact
+name. Regenerating it — which rewrites the file under a *new* timestamped name —
+makes it look brand new, so the next deploy replays the entire `CREATE TABLE` /
+`CREATE TYPE` body against a database that already has every object and dies on
+`42710 type … already exists`. The build fails with only `Command "npm run ci"
+exited with 1` at the top level.
+
+For any schema change after the first deploy, **add a migration, never rewrite
+one**:
+
+```bash
+npm run migrate:create my_change     # emits a new file with only the delta
+```
+
+`migrate:create` diffs the config against the newest `.json` snapshot in
+`src/migrations/`, so the delta is correct only while the previously deployed
+migration and its snapshot are still present and unmodified. If a rewrite has
+already happened, restore the deployed migration under its original name (it is in
+git history), then generate the delta on top of it.
+
+Verify a chain before pushing, against a throwaway database rather than dev:
+
+```bash
+createdb sutoreido_migtest
+DATABASE_URI=postgres://…/sutoreido_migtest npx payload migrate   # must apply all, in order
+```
+
+Note the CLI reads migration *files from the directory*, not `src/migrations/index.ts`
+— so staging a partial chain means moving files aside, not editing the index. And the
+dev-mode data-loss prompt only fires when a `batch: -1` row exists; if it appears
+against a database you believe is fresh, you are connected to the wrong database.
+
 ## 6. Create your first user
 
 The database is empty, so `/admin` shows the create-first-user screen. Visit:
