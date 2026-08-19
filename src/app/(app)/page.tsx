@@ -6,7 +6,12 @@ import { ArchiveSearch } from '@/components/archive/archive-search'
 import { Docket } from '@/components/archive/docket'
 import { MatterRail } from '@/components/archive/matter-rail'
 import { Owing, Standing } from '@/components/archive/standing'
-import { getArchiveStanding, getDocket, getMatterIndex } from '@/lib/archive/queries'
+import {
+  getArchiveStanding,
+  getDocket,
+  getMatterIndex,
+  type ArchiveStanding,
+} from '@/lib/archive/queries'
 import { requireSession } from '@/lib/auth/dal'
 
 /**
@@ -18,6 +23,25 @@ import { requireSession } from '@/lib/auth/dal'
 export const dynamic = 'force-dynamic'
 
 type Params = { searchParams: Promise<{ client?: string; q?: string; view?: string }> }
+
+/**
+ * One clause describing how old the unpaid money is, or null when there is nothing
+ * worth saying. Never summed or compared across currencies.
+ */
+function describeAge(groups: ArchiveStanding['agingByCurrency']): string | null {
+  const populated = groups.flatMap((g) =>
+    g.buckets.filter((b) => b.cents > 0).map((b) => b.label),
+  )
+  const distinct = [...new Set(populated)]
+  if (distinct.length === 0) return null
+  if (distinct.length === 1) {
+    return distinct[0] === 'undated'
+      ? 'none of it with a due date'
+      : `all of it ${distinct[0]} days out`
+  }
+  const oldest = ['90+', '61-90', '31-60', '0-30'].find((label) => distinct.includes(label))
+  return oldest ? `the oldest ${oldest} days out` : null
+}
 
 export default async function ArchivePage({ searchParams }: Params) {
   const { client, q, view } = await searchParams
@@ -34,6 +58,16 @@ export default async function ArchivePage({ searchParams }: Params) {
   ])
 
   const openTab = activeClientId ? tabs.find((t) => t.clientId === activeClientId) : undefined
+
+  /**
+   * The age of what is unpaid, as a clause rather than a block.
+   *
+   * It used to be a panel pinned to the bottom of the rail, where it read as a
+   * stray figure with no owner. It belongs to the same thought as the amount, so
+   * it now finishes that sentence — and it says nothing at all when there is
+   * nothing to say.
+   */
+  const ageNote = describeAge(standing.agingByCurrency)
 
   // A client id that is not in this owner's roster is not found, never a silently
   // empty "Every filing". Same rule as everywhere else: a row belonging to
@@ -74,7 +108,7 @@ export default async function ArchivePage({ searchParams }: Params) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-rule-strong flex h-[60px] items-center justify-between border-b px-5">
+      <header className="border-rule flex h-[60px] items-center justify-between border-b px-5">
         <Link href="/" className="text-ink text-[15px] font-semibold tracking-[0.02em]">
           Sutoreido
         </Link>
@@ -97,24 +131,19 @@ export default async function ArchivePage({ searchParams }: Params) {
       <div className="flex min-h-[calc(100vh-60px)] flex-col md:flex-row">
         {/* The spine. Its own scroll, so the docket never drags the roster with it. */}
         <aside
-          className={`border-rule-strong shrink-0 border-b md:sticky md:top-0 md:flex md:h-[calc(100vh-60px)] md:w-[20rem] md:flex-col md:border-b-0 ${
+          className={`border-rule shrink-0 border-b md:sticky md:top-0 md:flex md:h-[calc(100vh-60px)] md:w-[20rem] md:flex-col md:border-b-0 md:border-r ${
             matterIsOpen ? 'hidden md:flex' : 'block'
           }`}
         >
-          <div className="border-rule-strong hidden border-b md:block">
+          <div className="border-rule hidden border-b md:block">
             <ArchiveSearch id="archive-q-wide" placeholder="Client, or what the work was" />
           </div>
-          <MatterRail
-            tabs={tabs}
-            activeClientId={activeClientId}
-            query={query}
-            standing={standing}
-          />
+          <MatterRail tabs={tabs} activeClientId={activeClientId} query={query} />
         </aside>
 
         {/* The open matter, owning the rest of the bench. */}
         <main className={`min-w-0 flex-1 ${matterIsOpen ? 'block' : 'hidden md:block'}`}>
-          <div className="border-rule-strong border-b px-5 py-7 md:px-8 md:py-9">
+          <div className="border-rule border-b px-5 py-8 md:px-8 md:py-10">
             {matterIsOpen ? (
               <Link
                 href="/"
@@ -141,8 +170,8 @@ export default async function ArchivePage({ searchParams }: Params) {
             </p>
 
             {owing.length > 0 ? (
-              <p className="text-ink-2 mt-2 text-[14px] leading-relaxed md:text-[15px]">
-                <Owing rows={owing} />
+              <p className="text-ink-2 mt-2 max-w-[65ch] text-[14px] leading-relaxed md:text-[15px]">
+                <Owing rows={owing} ageNote={!query && !openTab ? ageNote : null} />
               </p>
             ) : null}
 
@@ -171,7 +200,7 @@ function EmptyDocket({ query, clientName }: { query?: string; clientName?: strin
         {/* A blank plate on the bench: the file is open and there is nothing in it. */}
         <div
           aria-hidden
-          className="border-rule-strong mb-6 h-24 w-20 border border-dashed"
+          className="border-rule mb-6 h-24 w-20 border border-dashed"
           style={{ background: 'var(--bench-course)' }}
         />
         <h2 className="text-ink text-[19px] font-semibold tracking-[-0.01em]">

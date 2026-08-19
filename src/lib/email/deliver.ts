@@ -1,6 +1,6 @@
 import type { Payload } from 'payload'
 
-import { emailIsLive } from './adapter'
+
 
 export type DeliveryOutcome = {
   delivered: boolean
@@ -38,14 +38,26 @@ export async function deliver(args: {
   const { payload, to, cc, subject, html, attachments } = args
 
   const redirectTo = process.env.EMAIL_REDIRECT_TO?.trim()
-  const live = emailIsLive()
 
   const actualTo = redirectTo || to
   const redirected = Boolean(redirectTo) && redirectTo !== to
   const finalSubject = redirected ? `[would go to ${to}] ${subject}` : subject
 
+  /*
+   * Delivery is judged by the RESULT, never by the configuration.
+   *
+   * An earlier version asked the environment whether email was live. That reads
+   * process.env at call time, but the transport is built once when Payload
+   * initialises — so after adding a key without restarting, the env said "live"
+   * while the instance still had no transport, and a message that went to the
+   * console was reported as delivered. On an invoicing surface that is the worst
+   * possible lie: it says a client was chased when they were not.
+   *
+   * A real transport returns a provider message id. Nothing else counts.
+   */
+  let providerId: string | undefined
   try {
-    await payload.sendEmail({
+    const result = (await payload.sendEmail({
       to: actualTo,
       // Copies are dropped entirely under redirect: the point is that nobody
       // except the redirect address is contacted.
@@ -53,7 +65,8 @@ export async function deliver(args: {
       subject: finalSubject,
       html,
       attachments,
-    })
+    })) as { id?: string } | undefined
+    providerId = typeof result?.id === 'string' ? result.id : undefined
   } catch (error) {
     return {
       delivered: false,
@@ -61,20 +74,22 @@ export async function deliver(args: {
       actualTo,
       intendedTo: to,
       redirected,
-      live,
+      live: false,
       note: `Delivery failed: ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 
-  if (!live) {
+  if (!providerId) {
     return {
       delivered: false,
       state: 'composed',
       actualTo,
       intendedTo: to,
       redirected,
-      live,
-      note: `Composed but NOT sent: no email transport is configured, so it was written to the server log. Intended recipient was ${to}.`,
+      live: false,
+      note:
+        `Composed but NOT sent: the mail transport returned no message id, which means it went to the server log rather than to a provider. ` +
+        `Intended recipient was ${to}. If a key was added recently, the server needs a restart before the transport exists.`,
     }
   }
 
@@ -84,9 +99,9 @@ export async function deliver(args: {
     actualTo,
     intendedTo: to,
     redirected,
-    live,
+    live: true,
     note: redirected
-      ? `Sent to the redirect address ${actualTo} instead of ${to}, because EMAIL_REDIRECT_TO is set.`
-      : `Emailed to ${to}${cc?.length ? ` (cc ${cc.join(', ')})` : ''}.`,
+      ? `Sent to the redirect address ${actualTo} instead of ${to}, because EMAIL_REDIRECT_TO is set. Provider id ${providerId}.`
+      : `Emailed to ${to}${cc?.length ? ` (cc ${cc.join(', ')})` : ''}. Provider id ${providerId}.`,
   }
 }

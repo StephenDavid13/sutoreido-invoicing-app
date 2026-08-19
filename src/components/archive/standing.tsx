@@ -85,7 +85,13 @@ export function Standing({
  * What is still owed. In ink, not the stamp ink: the stamp belongs to state, and
  * a money figure is not a state. Never summed across currencies.
  */
-export function Owing({ rows }: { rows: { currency: CurrencyCode; cents: number }[] }) {
+export function Owing({
+  rows,
+  ageNote,
+}: {
+  rows: { currency: CurrencyCode; cents: number }[]
+  ageNote?: string | null
+}) {
   if (rows.length === 0) return null
   return (
     <>
@@ -97,7 +103,7 @@ export function Owing({ rows }: { rows: { currency: CurrencyCode; cents: number 
           </span>
         </React.Fragment>
       ))}{' '}
-      still owing.
+      still owing{ageNote ? `, ${ageNote}` : ''}.
     </>
   )
 }

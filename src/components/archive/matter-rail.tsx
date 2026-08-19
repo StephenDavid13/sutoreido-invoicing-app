@@ -1,10 +1,9 @@
 import Link from 'next/link'
 import React from 'react'
 
-import type { ArchiveStanding, MatterTab } from '@/lib/archive/queries'
+import type { MatterTab } from '@/lib/archive/queries'
 import { formatMoneyExplicit } from '@/lib/money/money'
 
-import { AgingCourses } from './aging-courses'
 import { MarkedText } from './marks'
 
 /**
@@ -21,12 +20,10 @@ export function MatterRail({
   tabs,
   activeClientId,
   query,
-  standing,
 }: {
   tabs: MatterTab[]
   activeClientId: number | null
   query?: string
-  standing: ArchiveStanding
 }) {
   const searching = Boolean(query?.trim())
 
@@ -34,15 +31,17 @@ export function MatterRail({
   // growing past it and pushing the foot out of view.
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <nav aria-label="Clients" className="divide-rule min-h-0 flex-1 divide-y md:overflow-y-auto">
+      <nav aria-label="Clients" className="min-h-0 flex-1 px-2 py-2 md:overflow-y-auto">
       <Link
         href={query ? `/?view=all&q=${encodeURIComponent(query)}` : '/?view=all'}
         aria-current={activeClientId === null ? 'page' : undefined}
-        className={`rail-ruled block px-4 py-3 transition-colors ${
-          activeClientId === null ? 'tab-open' : 'text-ink-2 hover:text-ink hover:bg-bench-course'
+        className={`block px-3 py-2 text-[13px] font-semibold uppercase tracking-[0.1em] transition-colors ${
+          activeClientId === null
+            ? 'tab-open'
+            : 'text-ink-3 hover:text-ink hover:bg-bench-course'
         }`}
       >
-        <span className="text-[13px] font-semibold uppercase tracking-[0.1em]">Every filing</span>
+        Every filing
       </Link>
 
       {tabs.map((tab) => {
@@ -57,7 +56,7 @@ export function MatterRail({
             key={tab.clientId}
             href={href}
             aria-current={open ? 'page' : undefined}
-            className={`rail-ruled group block px-4 py-3 transition-colors ${
+            className={`group block px-3 py-2.5 transition-colors ${
               open ? 'tab-open' : dimmed ? 'text-ink-3' : 'text-ink hover:bg-bench-course'
             }`}
           >
@@ -72,38 +71,25 @@ export function MatterRail({
               ) : null}
             </span>
 
-            <span
-              className={`mt-1 flex items-baseline justify-between gap-3 text-[11px] tabular-nums ${
-                open ? 'text-plate-ink-2' : 'text-ink-3'
-              }`}
-            >
-              <span className="figure">
-                {tab.filings === 0
-                  ? 'nothing filed'
-                  : `${tab.filings} filed`}
+            {tab.filings > 0 ? (
+              <span
+                className={`mt-0.5 flex items-baseline justify-between gap-3 text-[11px] tabular-nums ${
+                  open ? 'text-plate-ink-2' : 'text-ink-3'
+                }`}
+              >
+                <span className="figure">{tab.filings} filed</span>
+                {tab.outstandingCents > 0 ? (
+                  <span className="figure shrink-0">
+                    {formatMoneyExplicit(tab.outstandingCents, tab.currency)} owing
+                  </span>
+                ) : null}
               </span>
-              {tab.outstandingCents > 0 ? (
-                <span className="figure shrink-0">
-                  {formatMoneyExplicit(tab.outstandingCents, tab.currency)} owing
-                </span>
-              ) : null}
-            </span>
+            ) : null}
           </Link>
           )
         })}
       </nav>
 
-      {/*
-        The spine's foot. The aging of what is unpaid belongs on the spine rather
-        than in the matter's cover sheet: it describes the whole archive, and it
-        gives the rail a reason to occupy its full height instead of trailing off
-        into empty bench.
-      */}
-      {standing.agingByCurrency.length > 0 ? (
-        <div className="border-rule-strong rail-ruled shrink-0 border-t px-4 py-5">
-          <AgingCourses agingByCurrency={standing.agingByCurrency} />
-        </div>
-      ) : null}
     </div>
   )
 }

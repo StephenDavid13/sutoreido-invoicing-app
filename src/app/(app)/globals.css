@@ -43,8 +43,8 @@
   --stamp-quiet: #6d2f24;
 
   /* Hairlines. The file's ruling. */
-  --rule: rgb(232 230 223 / 0.11);
-  --rule-strong: rgb(232 230 223 / 0.2);
+  --rule: rgb(232 230 223 / 0.09);
+  --rule-strong: rgb(232 230 223 / 0.14);
 
   /* Ordinal ramp for aging, validated with --ordinal on the dark surface. */
   --age-1: #184f95;
@@ -178,30 +178,6 @@
     color: var(--plate-stamp);
   }
 
-  /*
-   * The rail's right rule, drawn as a pseudo-element rather than a border.
-   *
-   * A border here loses to Tailwind's `* { border-color }` base rule, and a
-   * negative-margin overhang is clipped by the nav's scroll container. A painted
-   * strip is subject to neither, so the open tab can actually break the line.
-   */
-  @media (min-width: 768px) {
-    .rail-ruled {
-      position: relative;
-    }
-    .rail-ruled::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: 0;
-      bottom: 0;
-      width: 1px;
-      background: var(--rule-strong);
-    }
-    .tab-open.rail-ruled::after {
-      display: none;
-    }
-  }
 
   /* Cancelled: the record is ruled through, the way a ledger voids a line. */
   .mark-struck {
