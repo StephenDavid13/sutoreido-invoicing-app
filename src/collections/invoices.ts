@@ -10,6 +10,7 @@ import {
   guardSendableInvoice,
   logInvoiceTransition,
   maintainDisplayNumber,
+  mintShareToken,
   recalculateTotals,
 } from '@/lib/invoices/hooks'
 import { INVOICE_STATUS_OPTIONS } from '@/lib/invoices/state-machine'
@@ -45,6 +46,7 @@ export const Invoices: CollectionConfig = {
       deriveDueDate,
       recalculateTotals,
       maintainDisplayNumber,
+      mintShareToken,
       // Last: totals must be final before we judge whether this is sendable.
       guardSendableInvoice,
     ],
@@ -55,6 +57,15 @@ export const Invoices: CollectionConfig = {
 
     // A sidebar button linking to /api/invoices/[id]/pdf. A `ui` field renders
     // a component without adding a column to the table.
+    {
+      name: 'sendAction',
+      type: 'ui',
+      label: 'Deliver',
+      admin: {
+        position: 'sidebar',
+        components: { Field: '/components/admin/invoice-send-button#InvoiceSendButton' },
+      },
+    },
     {
       name: 'pdfLink',
       type: 'ui',
@@ -304,6 +315,31 @@ export const Invoices: CollectionConfig = {
       },
     },
     { name: 'sentAt', type: 'date', admin: { readOnly: true, position: 'sidebar' } },
+    {
+      name: 'emailedAt',
+      type: 'date',
+      admin: {
+        readOnly: true,
+        position: 'sidebar',
+        description: 'When the client was actually emailed. Distinct from sentAt: an invoice can be issued but undelivered.',
+      },
+    },
+    {
+      name: 'deliveryState',
+      type: 'select',
+      defaultValue: 'not_sent',
+      index: true,
+      options: [
+        { label: 'Not sent', value: 'not_sent' },
+        // Composed and written to the server log because no email transport is
+        // configured. Not a failure, and it must not be reported as one.
+        { label: 'Composed, not sent', value: 'composed' },
+        { label: 'Delivered', value: 'delivered' },
+        { label: 'Failed', value: 'failed' },
+      ],
+      admin: { readOnly: true, position: 'sidebar' },
+    },
+    { name: 'deliveryNote', type: 'text', admin: { readOnly: true } },
     { name: 'viewedAt', type: 'date', admin: { readOnly: true, position: 'sidebar' } },
     { name: 'paidAt', type: 'date', admin: { readOnly: true, position: 'sidebar' } },
     {

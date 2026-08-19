@@ -13,6 +13,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE TYPE "public"."enum_invoices_due_mode" AS ENUM('on_receipt', 'net_days', 'fixed_date');
   CREATE TYPE "public"."enum_invoices_currency" AS ENUM('AUD', 'NZD', 'USD', 'PHP');
   CREATE TYPE "public"."enum_invoices_qty_label" AS ENUM('Qty', 'Hours', 'Days', 'Units');
+  CREATE TYPE "public"."enum_invoices_delivery_state" AS ENUM('not_sent', 'composed', 'delivered', 'failed');
   CREATE TYPE "public"."enum_bank_accounts_currency" AS ENUM('AUD', 'NZD', 'USD', 'PHP');
   CREATE TYPE "public"."enum_media_kind" AS ENUM('general', 'logo', 'invoice-pdf', 'quote-pdf', 'attachment');
   CREATE TYPE "public"."enum_number_sequences_kind" AS ENUM('invoice', 'quote');
@@ -24,9 +25,12 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE TYPE "public"."enum_services_currency" AS ENUM('AUD', 'NZD', 'USD', 'PHP');
   CREATE TYPE "public"."enum_services_billing_period" AS ENUM('monthly', 'quarterly', 'annually');
   CREATE TYPE "public"."enum_services_qty_label" AS ENUM('Qty', 'Hours', 'Days', 'Units');
+  CREATE TYPE "public"."enum_payments_currency" AS ENUM('AUD', 'NZD', 'USD', 'PHP');
+  CREATE TYPE "public"."enum_payments_method" AS ENUM('bank_transfer', 'card', 'cash', 'other');
+  CREATE TYPE "public"."enum_invoice_reminders_state" AS ENUM('prepared', 'sent', 'dismissed');
+  CREATE TYPE "public"."enum_notifications_kind" AS ENUM('reminder_prepared', 'invoice_overdue', 'ready_to_bill', 'renewal_due', 'invoice_viewed', 'delivery_failed');
   CREATE TYPE "public"."enum_quotes_status" AS ENUM('draft', 'sent', 'accepted', 'rejected', 'expired', 'cancelled');
   CREATE TYPE "public"."enum_quotes_currency" AS ENUM('AUD', 'NZD', 'USD', 'PHP');
-  CREATE TYPE "public"."enum_payments_method" AS ENUM('bank_transfer', 'card', 'cash', 'other');
   CREATE TYPE "public"."enum_business_settings_tax_jurisdiction" AS ENUM('AU', 'NZ');
   CREATE TYPE "public"."enum_business_settings_number_allocation_mode" AS ENUM('onSend', 'onCreate');
   CREATE TYPE "public"."enum__business_settings_v_version_tax_jurisdiction" AS ENUM('AU', 'NZ');
@@ -152,6 +156,9 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"archived_pdf_id" integer,
   	"share_token" varchar,
   	"sent_at" timestamp(3) with time zone,
+  	"emailed_at" timestamp(3) with time zone,
+  	"delivery_state" "enum_invoices_delivery_state" DEFAULT 'not_sent',
+  	"delivery_note" varchar,
   	"viewed_at" timestamp(3) with time zone,
   	"paid_at" timestamp(3) with time zone,
   	"source_quote_id" integer,
@@ -276,6 +283,63 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
+  CREATE TABLE "payments" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"owner_id" integer,
+  	"invoice_id" integer NOT NULL,
+  	"amount_cents" numeric NOT NULL,
+  	"currency" "enum_payments_currency",
+  	"received_on" timestamp(3) with time zone NOT NULL,
+  	"method" "enum_payments_method" DEFAULT 'bank_transfer' NOT NULL,
+  	"reference" varchar,
+  	"notes" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "reminder_rules" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"owner_id" integer,
+  	"label" varchar DEFAULT 'Default' NOT NULL,
+  	"client_id" integer,
+  	"offsets_days" varchar DEFAULT '-3,0,7,21' NOT NULL,
+  	"enabled" boolean DEFAULT true,
+  	"stop_when_part_paid" boolean DEFAULT false,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "invoice_reminders" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"owner_id" integer,
+  	"invoice_id" integer NOT NULL,
+  	"kind" varchar NOT NULL,
+  	"offset_days" numeric NOT NULL,
+  	"state" "enum_invoice_reminders_state" DEFAULT 'prepared' NOT NULL,
+  	"to_address" varchar,
+  	"subject" varchar,
+  	"body_html" varchar,
+  	"balance_at_prepared" numeric,
+  	"prepared_at" timestamp(3) with time zone NOT NULL,
+  	"sent_at" timestamp(3) with time zone,
+  	"note" varchar,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
+  CREATE TABLE "notifications" (
+  	"id" serial PRIMARY KEY NOT NULL,
+  	"owner_id" integer,
+  	"kind" "enum_notifications_kind" NOT NULL,
+  	"title" varchar NOT NULL,
+  	"body" varchar,
+  	"action_url" varchar,
+  	"dedupe_key" varchar NOT NULL,
+  	"read_at" timestamp(3) with time zone,
+  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
+  );
+  
   CREATE TABLE "quotes_scope_bullets" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
@@ -318,19 +382,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  CREATE TABLE "payments" (
-  	"id" serial PRIMARY KEY NOT NULL,
-  	"owner_id" integer,
-  	"invoice_id" integer NOT NULL,
-  	"amount_cents" numeric NOT NULL,
-  	"received_on" timestamp(3) with time zone NOT NULL,
-  	"method" "enum_payments_method" DEFAULT 'bank_transfer' NOT NULL,
-  	"reference" varchar,
-  	"notes" varchar,
-  	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-  	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
-  );
-  
   CREATE TABLE "payload_kv" (
   	"id" serial PRIMARY KEY NOT NULL,
   	"key" varchar NOT NULL,
@@ -358,8 +409,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"activity_log_id" integer,
   	"services_id" integer,
   	"service_billings_id" integer,
-  	"quotes_id" integer,
-  	"payments_id" integer
+  	"payments_id" integer,
+  	"reminder_rules_id" integer,
+  	"invoice_reminders_id" integer,
+  	"notifications_id" integer,
+  	"quotes_id" integer
   );
   
   CREATE TABLE "payload_preferences" (
@@ -518,13 +572,18 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "service_billings" ADD CONSTRAINT "service_billings_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "service_billings" ADD CONSTRAINT "service_billings_service_id_services_id_fk" FOREIGN KEY ("service_id") REFERENCES "public"."services"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "service_billings" ADD CONSTRAINT "service_billings_invoice_id_invoices_id_fk" FOREIGN KEY ("invoice_id") REFERENCES "public"."invoices"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "payments" ADD CONSTRAINT "payments_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "payments" ADD CONSTRAINT "payments_invoice_id_invoices_id_fk" FOREIGN KEY ("invoice_id") REFERENCES "public"."invoices"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "reminder_rules" ADD CONSTRAINT "reminder_rules_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "reminder_rules" ADD CONSTRAINT "reminder_rules_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."clients"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "invoice_reminders" ADD CONSTRAINT "invoice_reminders_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "invoice_reminders" ADD CONSTRAINT "invoice_reminders_invoice_id_invoices_id_fk" FOREIGN KEY ("invoice_id") REFERENCES "public"."invoices"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "notifications" ADD CONSTRAINT "notifications_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "quotes_scope_bullets" ADD CONSTRAINT "quotes_scope_bullets_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."quotes"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "quotes_line_items" ADD CONSTRAINT "quotes_line_items_parent_id_fk" FOREIGN KEY ("_parent_id") REFERENCES "public"."quotes"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "quotes" ADD CONSTRAINT "quotes_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "quotes" ADD CONSTRAINT "quotes_client_id_clients_id_fk" FOREIGN KEY ("client_id") REFERENCES "public"."clients"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "quotes" ADD CONSTRAINT "quotes_converted_to_invoice_id_invoices_id_fk" FOREIGN KEY ("converted_to_invoice_id") REFERENCES "public"."invoices"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "payments" ADD CONSTRAINT "payments_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "payments" ADD CONSTRAINT "payments_invoice_id_invoices_id_fk" FOREIGN KEY ("invoice_id") REFERENCES "public"."invoices"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_locked_documents"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_clients_fk" FOREIGN KEY ("clients_id") REFERENCES "public"."clients"("id") ON DELETE cascade ON UPDATE no action;
@@ -535,8 +594,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_activity_log_fk" FOREIGN KEY ("activity_log_id") REFERENCES "public"."activity_log"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_services_fk" FOREIGN KEY ("services_id") REFERENCES "public"."services"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_service_billings_fk" FOREIGN KEY ("service_billings_id") REFERENCES "public"."service_billings"("id") ON DELETE cascade ON UPDATE no action;
-  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_quotes_fk" FOREIGN KEY ("quotes_id") REFERENCES "public"."quotes"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_payments_fk" FOREIGN KEY ("payments_id") REFERENCES "public"."payments"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_reminder_rules_fk" FOREIGN KEY ("reminder_rules_id") REFERENCES "public"."reminder_rules"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_invoice_reminders_fk" FOREIGN KEY ("invoice_reminders_id") REFERENCES "public"."invoice_reminders"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_notifications_fk" FOREIGN KEY ("notifications_id") REFERENCES "public"."notifications"("id") ON DELETE cascade ON UPDATE no action;
+  ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_quotes_fk" FOREIGN KEY ("quotes_id") REFERENCES "public"."quotes"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_preferences"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_preferences_rels" ADD CONSTRAINT "payload_preferences_rels_users_fk" FOREIGN KEY ("users_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "business_settings" ADD CONSTRAINT "business_settings_logo_id_media_id_fk" FOREIGN KEY ("logo_id") REFERENCES "public"."media"("id") ON DELETE set null ON UPDATE no action;
@@ -571,6 +633,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "invoices_bank_account_idx" ON "invoices" USING btree ("bank_account_id");
   CREATE INDEX "invoices_archived_pdf_idx" ON "invoices" USING btree ("archived_pdf_id");
   CREATE INDEX "invoices_share_token_idx" ON "invoices" USING btree ("share_token");
+  CREATE INDEX "invoices_delivery_state_idx" ON "invoices" USING btree ("delivery_state");
   CREATE INDEX "invoices_source_quote_idx" ON "invoices" USING btree ("source_quote_id");
   CREATE INDEX "invoices_updated_at_idx" ON "invoices" USING btree ("updated_at");
   CREATE INDEX "invoices_created_at_idx" ON "invoices" USING btree ("created_at");
@@ -619,6 +682,30 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "service_billings_updated_at_idx" ON "service_billings" USING btree ("updated_at");
   CREATE INDEX "service_billings_created_at_idx" ON "service_billings" USING btree ("created_at");
   CREATE UNIQUE INDEX "service_periodStart_idx" ON "service_billings" USING btree ("service_id","period_start");
+  CREATE INDEX "payments_owner_idx" ON "payments" USING btree ("owner_id");
+  CREATE INDEX "payments_invoice_idx" ON "payments" USING btree ("invoice_id");
+  CREATE INDEX "payments_received_on_idx" ON "payments" USING btree ("received_on");
+  CREATE INDEX "payments_updated_at_idx" ON "payments" USING btree ("updated_at");
+  CREATE INDEX "payments_created_at_idx" ON "payments" USING btree ("created_at");
+  CREATE INDEX "invoice_receivedOn_idx" ON "payments" USING btree ("invoice_id","received_on");
+  CREATE INDEX "reminder_rules_owner_idx" ON "reminder_rules" USING btree ("owner_id");
+  CREATE INDEX "reminder_rules_client_idx" ON "reminder_rules" USING btree ("client_id");
+  CREATE INDEX "reminder_rules_updated_at_idx" ON "reminder_rules" USING btree ("updated_at");
+  CREATE INDEX "reminder_rules_created_at_idx" ON "reminder_rules" USING btree ("created_at");
+  CREATE INDEX "owner_client_idx" ON "reminder_rules" USING btree ("owner_id","client_id");
+  CREATE INDEX "invoice_reminders_owner_idx" ON "invoice_reminders" USING btree ("owner_id");
+  CREATE INDEX "invoice_reminders_invoice_idx" ON "invoice_reminders" USING btree ("invoice_id");
+  CREATE INDEX "invoice_reminders_state_idx" ON "invoice_reminders" USING btree ("state");
+  CREATE INDEX "invoice_reminders_updated_at_idx" ON "invoice_reminders" USING btree ("updated_at");
+  CREATE INDEX "invoice_reminders_created_at_idx" ON "invoice_reminders" USING btree ("created_at");
+  CREATE UNIQUE INDEX "invoice_kind_idx" ON "invoice_reminders" USING btree ("invoice_id","kind");
+  CREATE INDEX "owner_state_idx" ON "invoice_reminders" USING btree ("owner_id","state");
+  CREATE INDEX "notifications_owner_idx" ON "notifications" USING btree ("owner_id");
+  CREATE INDEX "notifications_kind_idx" ON "notifications" USING btree ("kind");
+  CREATE INDEX "notifications_updated_at_idx" ON "notifications" USING btree ("updated_at");
+  CREATE INDEX "notifications_created_at_idx" ON "notifications" USING btree ("created_at");
+  CREATE UNIQUE INDEX "dedupeKey_idx" ON "notifications" USING btree ("dedupe_key");
+  CREATE INDEX "owner_readAt_idx" ON "notifications" USING btree ("owner_id","read_at");
   CREATE INDEX "quotes_scope_bullets_order_idx" ON "quotes_scope_bullets" USING btree ("_order");
   CREATE INDEX "quotes_scope_bullets_parent_id_idx" ON "quotes_scope_bullets" USING btree ("_parent_id");
   CREATE INDEX "quotes_line_items_order_idx" ON "quotes_line_items" USING btree ("_order");
@@ -632,12 +719,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "quotes_updated_at_idx" ON "quotes" USING btree ("updated_at");
   CREATE INDEX "quotes_created_at_idx" ON "quotes" USING btree ("created_at");
   CREATE UNIQUE INDEX "owner_quoteNumber_idx" ON "quotes" USING btree ("owner_id","quote_number");
-  CREATE INDEX "payments_owner_idx" ON "payments" USING btree ("owner_id");
-  CREATE INDEX "payments_invoice_idx" ON "payments" USING btree ("invoice_id");
-  CREATE INDEX "payments_received_on_idx" ON "payments" USING btree ("received_on");
-  CREATE INDEX "payments_updated_at_idx" ON "payments" USING btree ("updated_at");
-  CREATE INDEX "payments_created_at_idx" ON "payments" USING btree ("created_at");
-  CREATE INDEX "invoice_receivedOn_idx" ON "payments" USING btree ("invoice_id","received_on");
   CREATE UNIQUE INDEX "payload_kv_key_idx" ON "payload_kv" USING btree ("key");
   CREATE INDEX "payload_locked_documents_global_slug_idx" ON "payload_locked_documents" USING btree ("global_slug");
   CREATE INDEX "payload_locked_documents_updated_at_idx" ON "payload_locked_documents" USING btree ("updated_at");
@@ -654,8 +735,11 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "payload_locked_documents_rels_activity_log_id_idx" ON "payload_locked_documents_rels" USING btree ("activity_log_id");
   CREATE INDEX "payload_locked_documents_rels_services_id_idx" ON "payload_locked_documents_rels" USING btree ("services_id");
   CREATE INDEX "payload_locked_documents_rels_service_billings_id_idx" ON "payload_locked_documents_rels" USING btree ("service_billings_id");
-  CREATE INDEX "payload_locked_documents_rels_quotes_id_idx" ON "payload_locked_documents_rels" USING btree ("quotes_id");
   CREATE INDEX "payload_locked_documents_rels_payments_id_idx" ON "payload_locked_documents_rels" USING btree ("payments_id");
+  CREATE INDEX "payload_locked_documents_rels_reminder_rules_id_idx" ON "payload_locked_documents_rels" USING btree ("reminder_rules_id");
+  CREATE INDEX "payload_locked_documents_rels_invoice_reminders_id_idx" ON "payload_locked_documents_rels" USING btree ("invoice_reminders_id");
+  CREATE INDEX "payload_locked_documents_rels_notifications_id_idx" ON "payload_locked_documents_rels" USING btree ("notifications_id");
+  CREATE INDEX "payload_locked_documents_rels_quotes_id_idx" ON "payload_locked_documents_rels" USING btree ("quotes_id");
   CREATE INDEX "payload_preferences_key_idx" ON "payload_preferences" USING btree ("key");
   CREATE INDEX "payload_preferences_updated_at_idx" ON "payload_preferences" USING btree ("updated_at");
   CREATE INDEX "payload_preferences_created_at_idx" ON "payload_preferences" USING btree ("created_at");
@@ -693,10 +777,13 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "services_costs" CASCADE;
   DROP TABLE "services" CASCADE;
   DROP TABLE "service_billings" CASCADE;
+  DROP TABLE "payments" CASCADE;
+  DROP TABLE "reminder_rules" CASCADE;
+  DROP TABLE "invoice_reminders" CASCADE;
+  DROP TABLE "notifications" CASCADE;
   DROP TABLE "quotes_scope_bullets" CASCADE;
   DROP TABLE "quotes_line_items" CASCADE;
   DROP TABLE "quotes" CASCADE;
-  DROP TABLE "payments" CASCADE;
   DROP TABLE "payload_kv" CASCADE;
   DROP TABLE "payload_locked_documents" CASCADE;
   DROP TABLE "payload_locked_documents_rels" CASCADE;
@@ -720,6 +807,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_invoices_due_mode";
   DROP TYPE "public"."enum_invoices_currency";
   DROP TYPE "public"."enum_invoices_qty_label";
+  DROP TYPE "public"."enum_invoices_delivery_state";
   DROP TYPE "public"."enum_bank_accounts_currency";
   DROP TYPE "public"."enum_media_kind";
   DROP TYPE "public"."enum_number_sequences_kind";
@@ -731,9 +819,12 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TYPE "public"."enum_services_currency";
   DROP TYPE "public"."enum_services_billing_period";
   DROP TYPE "public"."enum_services_qty_label";
+  DROP TYPE "public"."enum_payments_currency";
+  DROP TYPE "public"."enum_payments_method";
+  DROP TYPE "public"."enum_invoice_reminders_state";
+  DROP TYPE "public"."enum_notifications_kind";
   DROP TYPE "public"."enum_quotes_status";
   DROP TYPE "public"."enum_quotes_currency";
-  DROP TYPE "public"."enum_payments_method";
   DROP TYPE "public"."enum_business_settings_tax_jurisdiction";
   DROP TYPE "public"."enum_business_settings_number_allocation_mode";
   DROP TYPE "public"."enum__business_settings_v_version_tax_jurisdiction";

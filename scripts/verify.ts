@@ -58,14 +58,23 @@ async function verify() {
     where: { entityId: { equals: String(invoice.id) } },
     sort: 'occurredAt',
   })).docs
-  check('activity log recorded the transition', log.length === 1,
-    log[0] ? `${log[0].fromStatus} -> ${log[0].toStatus}` : 'no rows')
+  // Every status change writes a row, so the count grows as the invoice's life
+  // continues (the overdue sweep adds one). The invariant is that transitions are
+  // ALL logged and each one is a legal move, not that there is exactly one.
+  check('every status change is audited', log.length >= 1,
+    log.map((r) => `${r.fromStatus}->${r.toStatus}`).join(', ') || 'no rows')
+  const chainIsContiguous = log.every(
+    (row, i) => i === 0 || row.fromStatus === log[i - 1].toStatus,
+  )
+  check('the audit chain is contiguous', chainIsContiguous,
+    log.map((r) => `${r.fromStatus}->${r.toStatus}`).join(' then '))
 
-  // 6. The state machine rejects an un-send.
+  // 6. Nothing can go back to draft, whatever it is now. Asserting the specific
+  // from-state made this test stale the moment the overdue sweep touched the row.
   await expectRejection(
-    'sent -> draft is rejected (no un-send)',
+    'no issued invoice can return to draft',
     () => payload.update({ collection: 'invoices', id: invoice.id, data: { status: 'draft' } }),
-    'cannot transition from sent to draft',
+    'to draft',
   )
 
   // 7. Terminal states are terminal.

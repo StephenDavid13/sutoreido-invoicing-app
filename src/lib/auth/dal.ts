@@ -49,7 +49,8 @@ export type Session = { payload: Payload; user: User }
 export async function requireSession(): Promise<Session> {
   const payload = await payloadClient()
   const { user } = await payload.auth({ headers: await nextHeaders() })
-  if (!user) redirect('/login')
+  // Payload's admin owns the login form; there is no separate app login yet.
+  if (!user) redirect('/admin/login')
   return { payload, user: user as User }
 }
 

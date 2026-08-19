@@ -26,10 +26,14 @@ Freelance invoicing tools are either too thin (a PDF generator) or too heavy (fu
 - An idempotent billing run, exposed as a CLI command and a cron endpoint
 - Australian GST compliance: a `gstRegistered` flag drives the document title, the tax row and the rate
 - Multi-currency (AUD / NZD / USD / PHP) with unambiguous formatting
+- Payments with part payments, so an invoice keeps a real balance until covered
+- A deliberate send action: issue, archive the PDF immutably, email it with the PDF attached
+- A daily sweep that marks invoices overdue and **prepares** reminders for you to send
+- An outbound delivery guard that redirects all mail while testing
 
 **Planned**
 
-Email delivery and due-date reminders · payments and part-payments · dashboard with aging buckets · quotes and quote→invoice conversion · projects, kanban and time tracking · tokenised client portal
+A `/today` surface for what needs attention · quotes and quote→invoice conversion · projects, kanban and time tracking · client logins
 
 ## Tech stack
 

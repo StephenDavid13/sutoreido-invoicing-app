@@ -76,8 +76,11 @@ export interface Config {
     'activity-log': ActivityLog;
     services: Service;
     'service-billings': ServiceBilling;
-    quotes: Quote;
     payments: Payment;
+    'reminder-rules': ReminderRule;
+    'invoice-reminders': InvoiceReminder;
+    notifications: Notification;
+    quotes: Quote;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -94,8 +97,11 @@ export interface Config {
     'activity-log': ActivityLogSelect<false> | ActivityLogSelect<true>;
     services: ServicesSelect<false> | ServicesSelect<true>;
     'service-billings': ServiceBillingsSelect<false> | ServiceBillingsSelect<true>;
-    quotes: QuotesSelect<false> | QuotesSelect<true>;
     payments: PaymentsSelect<false> | PaymentsSelect<true>;
+    'reminder-rules': ReminderRulesSelect<false> | ReminderRulesSelect<true>;
+    'invoice-reminders': InvoiceRemindersSelect<false> | InvoiceRemindersSelect<true>;
+    notifications: NotificationsSelect<false> | NotificationsSelect<true>;
+    quotes: QuotesSelect<false> | QuotesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -389,6 +395,12 @@ export interface Invoice {
    */
   shareToken?: string | null;
   sentAt?: string | null;
+  /**
+   * When the client was actually emailed. Distinct from sentAt: an invoice can be issued but undelivered.
+   */
+  emailedAt?: string | null;
+  deliveryState?: ('not_sent' | 'composed' | 'delivered' | 'failed') | null;
+  deliveryNote?: string | null;
   viewedAt?: string | null;
   paidAt?: string | null;
   sourceQuote?: (number | null) | Quote;
@@ -683,6 +695,8 @@ export interface ServiceBilling {
   createdAt: string;
 }
 /**
+ * Recording a payment is what moves an invoice to Paid. Part payments are supported: the invoice keeps a balance until they cover the total.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payments".
  */
@@ -690,7 +704,14 @@ export interface Payment {
   id: number;
   owner?: (number | null) | User;
   invoice: number | Invoice;
+  /**
+   * Part payments are fine. The invoice keeps a balance until covered.
+   */
   amountCents: number;
+  /**
+   * Inherited from the invoice; a payment is never in another currency.
+   */
+  currency?: ('AUD' | 'NZD' | 'USD' | 'PHP') | null;
   receivedOn: string;
   method: 'bank_transfer' | 'card' | 'cash' | 'other';
   /**
@@ -698,6 +719,93 @@ export interface Payment {
    */
   reference?: string | null;
   notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Offsets in days from the due date: negative is before, 0 is the day itself, positive is overdue. Each offset prepares at most one reminder per invoice.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reminder-rules".
+ */
+export interface ReminderRule {
+  id: number;
+  owner?: (number | null) | User;
+  /**
+   * For your own reference.
+   */
+  label: string;
+  /**
+   * Leave empty for the fallback that covers every client. A client-specific rule replaces the fallback entirely rather than adding to it.
+   */
+  client?: (number | null) | Client;
+  /**
+   * Comma separated. The default is a courtesy note three days out, one on the due date, a follow-up a week late and a firmer one at three weeks. Terms of 7 days make anything earlier than -3 land on the issue date.
+   */
+  offsetsDays: string;
+  enabled?: boolean | null;
+  /**
+   * Stop preparing reminders once any payment has been received, even if a balance remains. Useful for clients who pay in instalments by arrangement.
+   */
+  stopWhenPartPaid?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Composed and waiting. Nothing here has been sent to a client unless its state says so. Reminders are prepared by the daily sweep; a receipt is prepared when an invoice settles.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "invoice-reminders".
+ */
+export interface InvoiceReminder {
+  id: number;
+  owner?: (number | null) | User;
+  invoice: number | Invoice;
+  /**
+   * What this item is: a reminder offset such as "-3" or "+7", or "receipt". Unique per invoice, which is what makes preparation idempotent.
+   */
+  kind: string;
+  /**
+   * Reminders only. A receipt has no offset.
+   */
+  offsetDays?: number | null;
+  state: 'prepared' | 'sent' | 'dismissed';
+  toAddress?: string | null;
+  subject?: string | null;
+  /**
+   * The composed message, as it will be sent. Rendered when prepared.
+   */
+  bodyHtml?: string | null;
+  /**
+   * Re-checked at send time; a settled invoice cannot be chased.
+   */
+  balanceAtPrepared?: number | null;
+  preparedAt: string;
+  sentAt?: string | null;
+  note?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notifications".
+ */
+export interface Notification {
+  id: number;
+  owner?: (number | null) | User;
+  kind:
+    'reminder_prepared' | 'invoice_overdue' | 'ready_to_bill' | 'renewal_due' | 'invoice_viewed' | 'delivery_failed';
+  title: string;
+  body?: string | null;
+  /**
+   * Where acting on this takes you.
+   */
+  actionUrl?: string | null;
+  /**
+   * Unique. The same fact produces the same key, so a repeat sweep adds nothing.
+   */
+  dedupeKey: string;
+  readAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -762,12 +870,24 @@ export interface PayloadLockedDocument {
         value: number | ServiceBilling;
       } | null)
     | ({
-        relationTo: 'quotes';
-        value: number | Quote;
-      } | null)
-    | ({
         relationTo: 'payments';
         value: number | Payment;
+      } | null)
+    | ({
+        relationTo: 'reminder-rules';
+        value: number | ReminderRule;
+      } | null)
+    | ({
+        relationTo: 'invoice-reminders';
+        value: number | InvoiceReminder;
+      } | null)
+    | ({
+        relationTo: 'notifications';
+        value: number | Notification;
+      } | null)
+    | ({
+        relationTo: 'quotes';
+        value: number | Quote;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -931,6 +1051,9 @@ export interface InvoicesSelect<T extends boolean = true> {
   archivedPdf?: T;
   shareToken?: T;
   sentAt?: T;
+  emailedAt?: T;
+  deliveryState?: T;
+  deliveryNote?: T;
   viewedAt?: T;
   paidAt?: T;
   sourceQuote?: T;
@@ -1067,6 +1190,71 @@ export interface ServiceBillingsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "payments_select".
+ */
+export interface PaymentsSelect<T extends boolean = true> {
+  owner?: T;
+  invoice?: T;
+  amountCents?: T;
+  currency?: T;
+  receivedOn?: T;
+  method?: T;
+  reference?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reminder-rules_select".
+ */
+export interface ReminderRulesSelect<T extends boolean = true> {
+  owner?: T;
+  label?: T;
+  client?: T;
+  offsetsDays?: T;
+  enabled?: T;
+  stopWhenPartPaid?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "invoice-reminders_select".
+ */
+export interface InvoiceRemindersSelect<T extends boolean = true> {
+  owner?: T;
+  invoice?: T;
+  kind?: T;
+  offsetDays?: T;
+  state?: T;
+  toAddress?: T;
+  subject?: T;
+  bodyHtml?: T;
+  balanceAtPrepared?: T;
+  preparedAt?: T;
+  sentAt?: T;
+  note?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notifications_select".
+ */
+export interface NotificationsSelect<T extends boolean = true> {
+  owner?: T;
+  kind?: T;
+  title?: T;
+  body?: T;
+  actionUrl?: T;
+  dedupeKey?: T;
+  readAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "quotes_select".
  */
 export interface QuotesSelect<T extends boolean = true> {
@@ -1104,21 +1292,6 @@ export interface QuotesSelect<T extends boolean = true> {
   acceptedAt?: T;
   shareToken?: T;
   convertedToInvoice?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "payments_select".
- */
-export interface PaymentsSelect<T extends boolean = true> {
-  owner?: T;
-  invoice?: T;
-  amountCents?: T;
-  receivedOn?: T;
-  method?: T;
-  reference?: T;
-  notes?: T;
   updatedAt?: T;
   createdAt?: T;
 }

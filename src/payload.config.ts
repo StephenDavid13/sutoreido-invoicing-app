@@ -12,12 +12,16 @@ import { Clients } from '@/collections/clients'
 import { Invoices } from '@/collections/invoices'
 import { Media } from '@/collections/media'
 import { NumberSequences } from '@/collections/number-sequences'
+import { InvoiceReminders } from '@/collections/invoice-reminders'
+import { Notifications } from '@/collections/notifications'
 import { Payments } from '@/collections/payments'
+import { ReminderRules } from '@/collections/reminder-rules'
 import { Quotes } from '@/collections/quotes'
 import { ServiceBillings } from '@/collections/service-billings'
 import { Services } from '@/collections/services'
 import { Users } from '@/collections/users'
 import { requireConnectionString } from '@/lib/db/connection-string'
+import { buildEmailAdapter } from '@/lib/email/adapter'
 import { BusinessSettings } from '@/globals/business-settings'
 import { InvoiceDefaults } from '@/globals/invoice-defaults'
 
@@ -57,14 +61,21 @@ export default buildConfig({
     // Recurring hosting and maintenance — invoice #5's shape, automated.
     Services,
     ServiceBillings,
+    Payments,
+    ReminderRules,
+    InvoiceReminders,
+    Notifications,
     // Registered now, built later — one schema, one initial migration, no rework.
     Quotes,
-    Payments,
   ],
 
   globals: [BusinessSettings, InvoiceDefaults],
 
   editor: lexicalEditor(),
+
+  // Undefined when RESEND_API_KEY is absent, which makes Payload log mail to the
+  // console instead of sending it. Nothing reaches a client until a key is set.
+  email: buildEmailAdapter(),
 
   db: postgresAdapter({
     pool: {

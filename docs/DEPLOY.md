@@ -102,6 +102,10 @@ database):
 | `PAYLOAD_SECRET` | a fresh 32-byte hex string — **not** your local one |
 | `NEXT_PUBLIC_SERVER_URL` | `https://your-domain.vercel.app` |
 | `CRON_SECRET` | a fresh random string, ≥16 chars |
+| `RESEND_API_KEY` | your Resend key. Omit and mail is written to the log instead of sent. |
+| `EMAIL_FROM` | an address on your **verified** Resend domain, e.g. `invoices@invoices.stephendavid.dev`. Mail only sends when this AND the key are set. |
+| `EMAIL_FROM_NAME` | optional display name |
+| `EMAIL_REDIRECT_TO` | **safety guard.** While set, every message goes here instead of the real recipient, with the intended address in the subject. Leave it set until you have watched a full send. |
 
 Generate the secrets:
 
@@ -178,7 +182,10 @@ Until you do, uploading a logo or archiving a PDF will fail in production.
 `vercel.json` already declares it:
 
 ```json
-{ "crons": [{ "path": "/api/cron/bill", "schedule": "0 22 * * *" }] }
+{ "crons": [
+  { "path": "/api/cron/bill",  "schedule": "0 22 * * *" },
+  { "path": "/api/cron/sweep", "schedule": "0 22 * * *" }
+] }
 ```
 
 `0 22 * * *` UTC is roughly 08:00 AEST / 09:00 AEDT. **Cron schedules are always
@@ -196,8 +203,16 @@ it can miss a day. The run is built for that — the unique index on
 `(service, periodStart)` makes a repeat a no-op, and querying by date window means
 a missed day is picked up next time.
 
-Vercel injects `CRON_SECRET` as `Authorization: Bearer <secret>`; the route rejects
+Vercel injects `CRON_SECRET` as `Authorization: Bearer <secret>`; both routes reject
 anything else.
+
+`/api/cron/bill` raises invoices for recurring services. `/api/cron/sweep` marks late
+invoices overdue and **prepares** reminders. Neither sends anything to a client: a
+prepared reminder waits for you to press send, which is why both are safe on a
+best-effort scheduler that can double-fire.
+
+Hobby's one-run-per-day limit applies to each path independently, so two daily crons
+is within budget.
 
 ## 10. Custom domain
 

@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto'
+
 import { addDays, formatISO } from 'date-fns'
 import { APIError } from 'payload'
 import type { CollectionAfterChangeHook, CollectionBeforeChangeHook } from 'payload'
@@ -169,6 +171,21 @@ export const allocateNumberOnSend: CollectionBeforeChangeHook = async ({
   // retroactively relabels this document as a TAX INVOICE.
   data.gstRegisteredAtIssue = Boolean(settings?.gstRegistered)
 
+  return data
+}
+
+/**
+ * Mints the share token when an invoice is first sent.
+ *
+ * Opaque and revocable: 128 bits of randomness, base64url, no relationship to
+ * the invoice id or number. Only sent invoices get one, so a draft has no
+ * reachable public URL at all rather than one guarded by status alone.
+ */
+export const mintShareToken: CollectionBeforeChangeHook = ({ data, originalDoc }) => {
+  if (data.shareToken) return data
+  const becomingSent = data.status === 'sent' && originalDoc?.status !== 'sent'
+  if (!becomingSent) return data
+  data.shareToken = randomBytes(16).toString('base64url')
   return data
 }
 

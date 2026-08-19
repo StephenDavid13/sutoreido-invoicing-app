@@ -42,3 +42,7 @@ tmp/
 
 # impeccable: local, machine-specific consent and overrides
 .impeccable/config.local.json
+
+# impeccable: local review captures (contain business identity)
+.impeccable/review/
+.impeccable/mocks/

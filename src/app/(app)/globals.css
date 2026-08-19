@@ -1,92 +1,262 @@
 @import 'tailwindcss';
-@import 'tw-animate-css';
 
 /*
- * This stylesheet is imported ONLY by src/app/(app)/layout.tsx.
+ * THE MATTER FILE — the visual world for the operator's surfaces.
  *
- * There is deliberately no shared src/app/layout.tsx: the (app) and (payload)
- * route groups each have their own root layout, and Next only ships the CSS
- * imported by the rendered tree. That is what stops Tailwind's preflight reset
- * from reaching the Payload admin panel and breaking its styling.
+ * Imported ONLY by src/app/(app)/layout.tsx. The (payload) route group has its
+ * own root layout and never sees this file, which is what keeps Tailwind's
+ * preflight out of the admin panel.
+ *
+ * Two accents, strictly separated jobs, and neither may do the other's work:
+ *   --reserved  the active query and the open matter. Never status.
+ *   --stamp     struck status marks only. Never a container, never a pill.
  */
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.625rem;
+  /* The bench: a sole trader's desk under a lamp, at night. */
+  --bench: #101419;
+  --bench-course: #161b21;
+  --bench-lip: #1c222a;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-}
+  /* Documents resting on it. */
+  --plate: #e8e6df;
+  --plate-edge: #cdc9bd;
+  --plate-ink: #14171b;
+  /* Measured on the plate, not inherited from the bench. 4.53:1 at 11px. */
+  --plate-ink-2: #686764;
+  /* The stamp ink darkened for the plate: 4.53:1, where #d75d43 was 3.04:1. */
+  --plate-stamp: #aa4935;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  /* Ink on the bench. Secondary steps are tinted from the bench hue, never gray. */
+  --ink: #e8e6df;
+  --ink-2: #9aa6b4;
+  --ink-3: #788493; /* 4.55:1 on the course, the harder of the two grounds */
+
+  /* The query layer. Validated against #171717 at 3:1+ (dataviz check 4). */
+  --reserved: #3987e5;
+  --reserved-quiet: #1d4b7e;
+
+  /* Rubber-stamp ink. Status marks only. */
+  --stamp: #d75d43; /* 4.56:1 on the course; the stamped word is meaning-carrying text */
+  --stamp-quiet: #6d2f24;
+
+  /* Hairlines. The file's ruling. */
+  --rule: rgb(232 230 223 / 0.11);
+  --rule-strong: rgb(232 230 223 / 0.2);
+
+  /* Ordinal ramp for aging, validated with --ordinal on the dark surface. */
+  --age-1: #184f95;
+  --age-2: #256abf;
+  --age-3: #3987e5;
+  --age-4: #86b6ef;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
+  --color-bench: var(--bench);
+  --color-bench-course: var(--bench-course);
+  --color-bench-lip: var(--bench-lip);
+  --color-plate: var(--plate);
+  --color-plate-edge: var(--plate-edge);
+  --color-plate-ink: var(--plate-ink);
+  --color-plate-ink-2: var(--plate-ink-2);
+  --color-plate-stamp: var(--plate-stamp);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-reserved: var(--reserved);
+  --color-reserved-quiet: var(--reserved-quiet);
+  --color-stamp: var(--stamp);
+  --color-stamp-quiet: var(--stamp-quiet);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+
+  /* Square stationery. One radius, and it is zero. No exceptions. */
+  --radius-none: 0px;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--rule);
   }
+
+  html {
+    background: var(--bench);
+    /* Native form controls and scrollbars inherit the world rather than the OS. */
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    background: var(--bench);
+    color: var(--ink);
+    font-feature-settings: 'tnum' 1, 'cv05' 1;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Browser surfaces. The parts not drawn still carry the design. */
+  ::selection {
+    background: var(--reserved);
+    color: #fff;
+  }
+
+  :where(input, textarea) {
+    caret-color: var(--reserved);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--reserved);
+    outline-offset: 2px;
+  }
+
+  a {
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: from-font;
+  }
+
+  /* Every figure in this product is money, an hour, or a count. All align. */
+  :where(td, th, .figure) {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--bench);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--bench-lip);
+    border: 2px solid var(--bench);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #2a323c;
+  }
+
+  /* The document surface: a pale plate, for the page a client actually reads. */
+  .plate-surface {
+    background: var(--plate);
+    color: var(--plate-ink);
+    color-scheme: light;
+  }
+  .plate-surface ::selection {
+    background: var(--reserved);
+    color: #fff;
+  }
+  .plate-surface ::-webkit-scrollbar-track {
+    background: var(--plate);
+  }
+  .plate-surface ::-webkit-scrollbar-thumb {
+    background: var(--plate-edge);
+    border: 2px solid var(--plate);
+  }
+}
+
+@layer components {
+  /*
+   * A struck mark. Status is an impression on the record, not a coloured chip:
+   * a stamped word sits slightly off-square, as a hand-held stamp lands.
+   */
+  .mark-stamp {
+    display: inline-block;
+    /*
+     * The impression a hand-held stamp leaves: the word, sitting slightly off
+     * square, over a single struck rule. No border, because a border is a
+     * container and this world does not put state in containers.
+     */
+    padding-bottom: 0.14em;
+    border-bottom: 1.5px solid currentColor;
+    letter-spacing: 0.11em;
+    transform: rotate(-1.1deg);
+    line-height: 1.05;
+  }
+  /* Opt-in on the plate: overdue takes the plate's darker stamp ink (4.53:1). */
+  .plate-surface .mark-stamp-urgent {
+    color: var(--plate-stamp);
+  }
+
+  /*
+   * The rail's right rule, drawn as a pseudo-element rather than a border.
+   *
+   * A border here loses to Tailwind's `* { border-color }` base rule, and a
+   * negative-margin overhang is clipped by the nav's scroll container. A painted
+   * strip is subject to neither, so the open tab can actually break the line.
+   */
+  @media (min-width: 768px) {
+    .rail-ruled {
+      position: relative;
+    }
+    .rail-ruled::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--rule-strong);
+    }
+    .tab-open.rail-ruled::after {
+      display: none;
+    }
+  }
+
+  /* Cancelled: the record is ruled through, the way a ledger voids a line. */
+  .mark-struck {
+    position: relative;
+    color: var(--ink-3);
+  }
+  .mark-struck::after {
+    content: '';
+    position: absolute;
+    left: -0.15em;
+    right: -0.15em;
+    top: 52%;
+    border-top: 1.5px solid var(--stamp-quiet);
+  }
+
+  /*
+   * A hit from the query layer. Marks the record without recolouring or
+   * reordering it: clear the query and nothing has moved.
+   */
+  .mark-hit {
+    background: var(--reserved-quiet);
+    color: #fff;
+    box-shadow: 0 0 0 1.5px var(--reserved-quiet);
+  }
+
+  /*
+   * The gummed tab of an open file: inverted to a pale plate, and it BREAKS the
+   * rail's rule rather than trying to overhang it. A negative-margin protrusion
+   * is clipped the moment any ancestor scrolls, so the rule is carried by the
+   * rows themselves and the open row simply omits it.
+   */
+  .tab-open {
+    background: var(--plate);
+    color: var(--plate-ink);
+  }
+}
+
+/*
+ * One authored motion: a course settling under the window. Rows arrive by
+ * stepping one line-height with a single overshoot, never a fade-up cascade.
+ * The default state is already visible, so nothing depends on JS to be legible.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes course-step {
+    0% {
+      transform: translateY(-0.42em);
+    }
+    72% {
+      transform: translateY(0.06em);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  .course-step {
+    animation: course-step 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }
