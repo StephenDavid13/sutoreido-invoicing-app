@@ -355,11 +355,11 @@ export interface Invoice {
    */
   notes?: string | null;
   /**
-   * Seeded from the default template in Invoice defaults, then editable per invoice.
+   * Filled in on save from the template in Invoice defaults, then editable per invoice. {{paymentTermsDays}} and {{bankDetails}} are substituted when the PDF renders.
    */
   terms?: string | null;
   /**
-   * Defaults to the default account for this invoice currency.
+   * Where the client sends the money. Filled in on save with your default account for this invoice currency; change it per invoice if you need to. An invoice cannot be sent without one.
    */
   bankAccount?: (number | null) | BankAccount;
   /**
@@ -1422,11 +1422,11 @@ export interface InvoiceDefault {
    */
   showSubtotalWhenUntaxed?: boolean | null;
   /**
-   * Must resolve to exactly one place or the details print twice. Keep this consistent with the wording of the terms template — if the terms say "the account listed above", the details belong in PAYABLE TO.
+   * Where the client finds your account details. "Payable to" prints them under your name; "Terms" prints them wherever the terms text contains {{bankDetails}}; "Both" does each. Keep it consistent with the terms wording — if the terms say "the account listed above", the details belong in PAYABLE TO.
    */
   bankDetailsPlacement: 'terms' | 'payable_to' | 'both';
   /**
-   * Copied onto each new invoice and then editable. {{paymentTermsDays}} and {{bankDetails}} are substituted at creation.
+   * Copied onto each new invoice and then editable there. An invoice with no terms of its own falls back to this, so payment terms are never missing from a document. {{paymentTermsDays}} and {{bankDetails}} are substituted when the PDF renders, not when it is copied.
    */
   defaultTermsTemplate: string;
   /**

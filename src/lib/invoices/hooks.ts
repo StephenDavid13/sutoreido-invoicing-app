@@ -226,6 +226,68 @@ export const maintainDisplayNumber: CollectionBeforeChangeHook = async ({ data, 
 }
 
 /**
+ * Seeds the two fields an invoice cannot be paid without.
+ *
+ * Both field descriptions have always claimed this happened — "Defaults to the
+ * default account for this invoice currency", "Seeded from the default template
+ * in Invoice defaults" — and nothing implemented it. The result was an invoice
+ * created by hand carrying no bank details and no terms: a document that looks
+ * complete, states an amount due, and tells the client nowhere to send it.
+ *
+ * Fills empties only, so an invoice edited by hand is never overwritten, and a
+ * deliberately cleared field stays cleared for that invoice.
+ */
+export const seedPaymentDefaults: CollectionBeforeChangeHook = async ({
+  data,
+  originalDoc,
+  req,
+}) => {
+  const currency = data.currency ?? originalDoc?.currency
+  const ownerRaw = data.owner ?? originalDoc?.owner ?? req.user?.id
+  const owner =
+    ownerRaw && typeof ownerRaw === 'object' && 'id' in ownerRaw
+      ? (ownerRaw as { id: unknown }).id
+      : ownerRaw
+
+  const termsEmpty = !String(data.terms ?? originalDoc?.terms ?? '').trim()
+  const bankEmpty = data.bankAccount === undefined || data.bankAccount === null
+    ? !originalDoc?.bankAccount
+    : false
+
+  if (termsEmpty) {
+    const defaults = await req.payload.findGlobal({ slug: 'invoice-defaults', req, depth: 0 })
+    const template = defaults?.defaultTermsTemplate
+    // The template's {{paymentTermsDays}} and {{bankDetails}} placeholders are
+    // substituted at render time, not here — storing the raw template keeps the
+    // invoice correct if the terms days change before it is sent.
+    if (template) data.terms = template
+  }
+
+  if (bankEmpty && owner !== undefined && owner !== null && currency) {
+    const accounts = await req.payload.find({
+      collection: 'bank-accounts',
+      where: {
+        and: [
+          { owner: { equals: owner } },
+          { currency: { equals: currency } },
+          { archived: { not_equals: true } },
+        ],
+      },
+      // isDefault is not unique per (owner, currency) — nothing enforces that —
+      // so pick deterministically rather than relying on whatever comes first.
+      sort: '-isDefault,-updatedAt',
+      limit: 1,
+      depth: 0,
+      req,
+    })
+    const account = accounts.docs[0]
+    if (account) data.bankAccount = account.id
+  }
+
+  return data
+}
+
+/**
  * Refuses to send an invoice that asks for nothing.
  *
  * A $0.00 invoice reaching a client is worse than an error: it looks like a

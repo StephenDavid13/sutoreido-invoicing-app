@@ -90,6 +90,22 @@ export const InvoiceDefaults: GlobalConfig = {
     },
     {
       name: 'bankDetailsPlacement',
+      /**
+       * "Terms" puts the account details wherever the terms text contains a
+       * {{bankDetails}} placeholder — and does nothing at all if there isn't
+       * one. Combined with a template that has no placeholder, that produces an
+       * invoice whose account details appear NOWHERE: the most expensive kind of
+       * silent failure this document can have.
+       *
+       * "Both" is safe either way, because PAYABLE TO carries them regardless.
+       */
+      validate: (value: unknown, options: unknown) => {
+        const { siblingData } = options as { siblingData?: { defaultTermsTemplate?: string } }
+        if (value !== 'terms') return true
+        const template = siblingData?.defaultTermsTemplate ?? ''
+        if (template.includes('{{bankDetails}}')) return true
+        return 'Your terms template has no {{bankDetails}} placeholder, so "Terms" would leave your account details off the invoice entirely. Add {{bankDetails}} to the template, or choose "Payable to" or "Both".'
+      },
       type: 'select',
       required: true,
       defaultValue: 'payable_to',
@@ -100,7 +116,7 @@ export const InvoiceDefaults: GlobalConfig = {
       ],
       admin: {
         description:
-          'Must resolve to exactly one place or the details print twice. Keep this consistent with the wording of the terms template — if the terms say "the account listed above", the details belong in PAYABLE TO.',
+          'Where the client finds your account details. "Payable to" prints them under your name; "Terms" prints them wherever the terms text contains {{bankDetails}}; "Both" does each. Keep it consistent with the terms wording — if the terms say "the account listed above", the details belong in PAYABLE TO.',
       },
     },
     {
@@ -113,7 +129,7 @@ export const InvoiceDefaults: GlobalConfig = {
 3. Disputes: Any disputes regarding charges must be raised within 14 days of the invoice date.`,
       admin: {
         description:
-          'Copied onto each new invoice and then editable. {{paymentTermsDays}} and {{bankDetails}} are substituted at creation.',
+          'Copied onto each new invoice and then editable there. An invoice with no terms of its own falls back to this, so payment terms are never missing from a document. {{paymentTermsDays}} and {{bankDetails}} are substituted when the PDF renders, not when it is copied.',
       },
     },
     {

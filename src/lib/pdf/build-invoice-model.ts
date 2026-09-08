@@ -115,7 +115,10 @@ export function buildInvoicePdfModel(args: {
   const m = (cents: number) => money(cents, currency)
 
   const bankDetails = bankDetailsText(bankAccount)
-  const placement = defaults.bankDetailsPlacement ?? 'terms'
+  // Falls back to 'payable_to', matching the global's own default. It used to
+  // fall back to 'terms', so an unsaved global put the bank details inside the
+  // terms text — and an invoice with empty terms then showed them nowhere at all.
+  const placement = defaults.bankDetailsPlacement ?? 'payable_to'
 
   // ATO: the words "tax invoice" are only permitted when GST-registered. The
   // frozen per-invoice flag is authoritative, not today's setting — registering
@@ -125,7 +128,19 @@ export function buildInvoicePdfModel(args: {
   const documentTitle: 'INVOICE' | 'TAX INVOICE' =
     gstAtIssue && taxRate > 0 ? 'TAX INVOICE' : 'INVOICE'
 
-  const terms = (invoice.terms ?? '')
+  /**
+   * The invoice's own terms, falling back to the template when it has none.
+   *
+   * Terms are copied onto each invoice on save so that a sent document keeps the
+   * wording it was sent with. But an invoice created before that copying existed
+   * — or one whose terms were cleared — would otherwise print no payment terms
+   * at all: no due wording, no payment method, nothing telling the client how to
+   * settle it. Falling back here means the document is never silently missing
+   * its payment terms, and it costs nothing for an invoice that has its own.
+   */
+  const termsSource = String(invoice.terms ?? '').trim() || String(defaults.defaultTermsTemplate ?? '')
+
+  const terms = termsSource
     .replaceAll('{{paymentTermsDays}}', String(invoice.paymentTermsDays ?? 0))
     .replaceAll(
       '{{bankDetails}}',

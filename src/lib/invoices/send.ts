@@ -119,6 +119,16 @@ export async function sendInvoice(args: {
     )
   }
 
+  // An invoice with no account to pay into states an amount due and tells the
+  // client nowhere to send it. Refused here, before the transition mints a
+  // number, for the same reason as the identity check above.
+  if (!invoice.bankAccount) {
+    throw new APIError(
+      `Invoice ${invoice.displayNumber ?? invoiceId} has no bank account attached, so the client would have nowhere to pay. Add a bank account for ${invoice.currency} in the back office, then reopen the invoice.`,
+      409,
+    )
+  }
+
   // 1. Issue it. The hooks mint the number, the share token and the GST posture.
   if (invoice.status === 'draft') {
     invoice = (await payload.update({

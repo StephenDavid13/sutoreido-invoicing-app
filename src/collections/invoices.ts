@@ -12,6 +12,7 @@ import {
   maintainDisplayNumber,
   mintShareToken,
   recalculateTotals,
+  seedPaymentDefaults,
 } from '@/lib/invoices/hooks'
 import { INVOICE_STATUS_OPTIONS } from '@/lib/invoices/state-machine'
 import { CURRENCY_OPTIONS } from '@/lib/money/currencies'
@@ -42,6 +43,8 @@ export const Invoices: CollectionConfig = {
     // then derive dates, then totals, then the printed number.
     beforeChange: [
       enforceInvoiceStateMachine,
+      // Early: later hooks and the PDF mapper both read terms and bankAccount.
+      seedPaymentDefaults,
       allocateNumberOnSend,
       deriveDueDate,
       recalculateTotals,
@@ -305,14 +308,17 @@ export const Invoices: CollectionConfig = {
       maxLength: 4000,
       admin: {
         description:
-          'Seeded from the default template in Invoice defaults, then editable per invoice.',
+          'Filled in on save from the template in Invoice defaults, then editable per invoice. {{paymentTermsDays}} and {{bankDetails}} are substituted when the PDF renders.',
       },
     },
     {
       name: 'bankAccount',
       type: 'relationship',
       relationTo: 'bank-accounts',
-      admin: { description: 'Defaults to the default account for this invoice currency.' },
+      admin: {
+        description:
+          'Where the client sends the money. Filled in on save with your default account for this invoice currency; change it per invoice if you need to. An invoice cannot be sent without one.',
+      },
     },
 
     // -------------------------------------------------------- frozen snapshots
