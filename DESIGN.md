@@ -205,6 +205,20 @@ The query field sits at the head of the rail, not the top right, and **above the
 responsive split** so it survives at every width. Two instances mount with distinct
 ids (`archive-q-narrow` / `archive-q-wide`).
 
+**Handing the document over.** Every filing with a share token carries a *Copy
+link* button beside its *Document* link, and the invoice's admin sidebar carries
+the same thing with the URL visible and selectable. This closes what used to be
+the archive's first named gap — the direction's story ends "finds it, reads it,
+and sends it", and sending meant selecting the address bar.
+
+The URL is built from `window.location.origin` rather than an env var, so it
+always matches the host in use and cannot hand a client a link into the wrong
+environment. Clipboard access needs a secure context, so it falls back through
+`execCommand` and then to a selectable field; the button reports "Copy failed" in
+stamp ink rather than silently doing nothing. A draft has no button at all,
+because the token is minted at issue and a draft is not a document anyone should
+be reading.
+
 **One authored motion:** `.course-step`, a row settling one line-height with a
 single overshoot. Not a fade-up cascade, and the default state is already visible,
 so nothing depends on JS to be legible. Gated behind
@@ -228,9 +242,7 @@ does not inherit the bench's chrome.
 
 Named rather than hidden, in the order they are worth closing:
 
-1. **No copy-link affordance.** The direction's story ends "finds it, reads it, and
-   sends it", and sending currently means selecting the address bar.
-2. **No material.** The plate is a flat fill; `--plate-edge` is declared and spent
+1. **No material.** The plate is a flat fill; `--plate-edge` is declared and spent
    only on a scrollbar. A calico grain and a faint bench tooth are this world's own
    materials and cost one asset each.
 3. **No legend of marks.** Five state marks and a four-step ramp ship with no key.

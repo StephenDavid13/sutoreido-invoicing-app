@@ -24,6 +24,7 @@ import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { InvoiceSendButton as InvoiceSendButton_5c6a7fb2e0907a7300e0a2a154d5b8e0 } from '../../../components/admin/invoice-send-button'
 import { InvoicePdfButton as InvoicePdfButton_30e7a42094214d73b339c24be71ac825 } from '../../../components/admin/invoice-pdf-button'
+import { InvoiceShareLink as InvoiceShareLink_6bd1917885d56febea2dc52fe00b133a } from '../../../components/admin/invoice-share-link'
 import { QuantityField as QuantityField_51c907f34dd0ac4f16e682eab2ce97f8 } from '../../../components/admin/scaled-number-field'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
 
@@ -55,6 +56,7 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "/components/admin/invoice-send-button#InvoiceSendButton": InvoiceSendButton_5c6a7fb2e0907a7300e0a2a154d5b8e0,
   "/components/admin/invoice-pdf-button#InvoicePdfButton": InvoicePdfButton_30e7a42094214d73b339c24be71ac825,
+  "/components/admin/invoice-share-link#InvoiceShareLink": InvoiceShareLink_6bd1917885d56febea2dc52fe00b133a,
   "/components/admin/scaled-number-field#QuantityField": QuantityField_51c907f34dd0ac4f16e682eab2ce97f8,
   "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
 }

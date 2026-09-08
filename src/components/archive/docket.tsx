@@ -4,6 +4,7 @@ import type { DocketEntry } from '@/lib/archive/queries'
 import { formatMoneyExplicit } from '@/lib/money/money'
 import { dateDDMMYYYY } from '@/lib/pdf/format'
 
+import { CopyLink } from './copy-link'
 import { MarkedText, StatusMark } from './marks'
 
 /**
@@ -71,12 +72,16 @@ export function Docket({
 
             <span className="flex shrink-0 items-baseline gap-4 text-[12px] font-semibold uppercase tracking-[0.1em]">
               {entry.shareToken ? (
-                <a
-                  href={`/i/${entry.shareToken}`}
-                  className="text-ink-2 hover:text-ink underline decoration-1 transition-colors"
-                >
-                  Document
-                </a>
+                <>
+                  <a
+                    href={`/i/${entry.shareToken}`}
+                    className="text-ink-2 hover:text-ink underline decoration-1 transition-colors"
+                  >
+                    Document
+                  </a>
+                  {/* The link, ready to hand to the client. */}
+                  <CopyLink token={entry.shareToken} />
+                </>
               ) : (
                 <span className="text-ink-3" title="A draft has no shareable document yet">
                   Document

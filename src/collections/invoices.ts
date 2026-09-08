@@ -78,6 +78,15 @@ export const Invoices: CollectionConfig = {
         components: { Field: '/components/admin/invoice-pdf-button#InvoicePdfButton' },
       },
     },
+    {
+      name: 'shareLink',
+      type: 'ui',
+      label: 'Client link',
+      admin: {
+        position: 'sidebar',
+        components: { Field: '/components/admin/invoice-share-link#InvoiceShareLink' },
+      },
+    },
 
     // ---------------------------------------------------------------- identity
     {
