@@ -56,8 +56,20 @@ export async function runServiceBilling(args: {
   payload: Payload
   asAt?: Date
   dryRun?: boolean
+  /**
+   * Restrict the run to specific services. The scheduled run passes nothing and
+   * sweeps everything; /today passes one id so the operator can raise a single
+   * renewal without triggering every other service at the same time.
+   */
+  serviceIds?: number[]
+  /**
+   * Include services whose `autoGenerate` is off. Only ever true for an explicit
+   * human action: the whole point of that flag is that the cron leaves them alone,
+   * but a person clicking "raise it now" has already made the decision.
+   */
+  includeManual?: boolean
 }): Promise<BillingRunResult> {
-  const { payload, dryRun = false } = args
+  const { payload, dryRun = false, serviceIds, includeManual = false } = args
   const asAt = startOfDayUTC(args.asAt ?? new Date())
 
   const result: BillingRunResult = {
@@ -72,8 +84,9 @@ export async function runServiceBilling(args: {
     where: {
       and: [
         { status: { equals: 'active' } },
-        { autoGenerate: { equals: true } },
+        ...(includeManual ? [] : [{ autoGenerate: { equals: true } }]),
         { nextInvoiceOn: { less_than_equal: asAt.toISOString() } },
+        ...(serviceIds?.length ? [{ id: { in: serviceIds.join(',') } }] : []),
       ],
     },
     depth: 1, // populate client + bankAccount

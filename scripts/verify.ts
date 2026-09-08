@@ -48,9 +48,28 @@ async function verify() {
   check('GST posture frozen at issue', invoice.gstRegisteredAtIssue === false)
 
   // 4. The sequence row exists and matches.
-  const seq = (await payload.find({ collection: 'number-sequences', limit: 10 })).docs
-  check('one invoice sequence row exists', seq.length === 1,
-    `kind=${seq[0]?.kind} lastValue=${seq[0]?.lastValue}`)
+  //
+  // Scoped to this invoice's owner, and asserting one row per (owner, kind)
+  // rather than one row in the table. An unscoped count passes only while
+  // exactly one operator has ever existed, and a second tenant — a throwaway
+  // test account included — then fails a check about numbering that numbering
+  // has not broken. One row per owner per kind is what the unique index
+  // actually enforces, so it is what this should assert.
+  const ownerId = typeof invoice.owner === 'object' ? invoice.owner?.id : invoice.owner
+  const allSeq = (await payload.find({ collection: 'number-sequences', limit: 200 })).docs
+  const mine = allSeq.filter((row) => {
+    const rowOwner = typeof row.owner === 'object' ? row.owner?.id : row.owner
+    return String(rowOwner) === String(ownerId) && row.kind === 'invoice'
+  })
+  check('one invoice sequence row for this owner', mine.length === 1,
+    `owner=${ownerId} lastValue=${mine[0]?.lastValue}`)
+
+  const pairs = allSeq.map((row) => {
+    const rowOwner = typeof row.owner === 'object' ? row.owner?.id : row.owner
+    return `${String(rowOwner)}:${row.kind}`
+  })
+  check('no duplicate (owner, kind) sequence rows', new Set(pairs).size === pairs.length,
+    `${pairs.length} row(s) across ${new Set(pairs).size} owner/kind pair(s)`)
 
   // 5. The audit trail recorded the draft -> sent transition.
   const log = (await payload.find({

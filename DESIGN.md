@@ -4,7 +4,10 @@ The visual world for the operator's surfaces. Written from the built result, not
 ahead of it. Product truth lives in [PRODUCT.md](PRODUCT.md); this file owns
 durable visual decisions only.
 
-Scope: everything under `src/app/(app)/`. The Payload admin at `/admin` is a
+Scope: everything under `src/app/(app)/`. Both operator surfaces share one
+header (`src/components/shell/header.tsx`); the current surface is marked with
+ink weight, never an accent, because chrome does not get to borrow either
+accent's job. The Payload admin at `/admin` is a
 separate root layout with its own vendor identity and is deliberately untouched by
 this world — see the note at the end.
 
@@ -125,6 +128,71 @@ border is a container and this world does not put state in a container.
 
 Only urgency varies the ink. Sent is the state the product exists to act on, so it
 may not be the quietest thing on a row.
+
+## The two surfaces
+
+The archive answers *what is on record*. It is spined by the client and it is
+deliberately passive: nothing on it is a decision.
+
+`/today` answers *what needs me*, and it is the surface the product's success
+criterion rests on — never miss recurring revenue. Chosen structure: **By What
+Breaks**, one strictly ordered column with no sections and no tabs, because the
+whole argument is that the top row is the next thing to do. Grouping by kind
+would hand that judgement back to the operator.
+
+**Ordering is by consequence, not by date.** The rank lives in
+`src/lib/today/queries.ts` and it is an argument about money:
+
+| Rank | Obligation | Why it sits there |
+|---|---|---|
+| 1 | Delivery failed | Issued, but the client never received it. A silent failure: you believe you are owed, they have never been asked. |
+| 2 | Renewal unbilled | A recurring period nobody invoiced. Miss the month and that revenue is not late, it is **gone**. |
+| 3 | Overdue | Late, but recoverable, and it escalates on its own. |
+| 4 | Reminder prepared | A chase email already written, waiting on one click. |
+| 5 | Draft unsent | Revenue that has not been asked for yet. |
+
+An unbilled period outranking an overdue invoice is the sharpest decision on this
+page, and it follows directly from the product's own goal. Anything sent and not
+yet due is absent entirely: there is no decision to make about it, and that is
+the archive's job.
+
+### What the accents may not do here
+
+`/today` has no active query and no open matter, so **`--reserved` appears
+nowhere on it** — including under the page heading, where the archive uses it.
+Borrowing it as a heading rule would redefine the accent as decoration.
+
+`--stamp` marks only the top three ranks. A composed email and an unsent draft
+are work in hand, not damage, so they take `--ink-2`. The stamped words name the
+damage rather than the database state: *Never arrived · Unbilled 12d · Overdue
+56d · To send · Unsent*.
+
+### Controls
+
+**Text buttons, never filled ones.** Both accents are spoken for and a filled
+chip would be a container in a world made of hairlines, so weight plus an
+underline carries the affordance. At most one primary action per row: a ranked
+list whose rows each offer two equal choices has not decided anything.
+
+Every action reports its outcome in place and keeps the honest wording from the
+delivery layer — including "written but not sent" when no transport is
+configured. A tick that means "logged to the console" is the exact lie this
+product was already bitten by.
+
+Recording a payment is **inline disclosure, not a dialog**. Nothing about it
+needs protected focus, and a modal would cover the balance being read off the
+row while typing.
+
+### Notes, not a bell
+
+The notification surface is called **Notes** and has no icon. A bell is the
+convention from chat products and would be the only pictogram in a world built
+from stamped words and hairlines; a matter file gets loose notes clipped to the
+front. The unread count uses the same stamped grammar as every other state.
+
+It is deliberately passive — a log. Anything needing a decision is a row on
+`/today` with a button on it, so opening the panel is allowed to be the end of
+the interaction.
 
 ## Interaction
 

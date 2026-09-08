@@ -139,7 +139,7 @@ See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full Vercel walkthrough. In sho
 
 ## Notes
 
-- **Uploads need a storage adapter in production.** The `media` collection writes to the local filesystem, which is ephemeral and read-only on serverless hosts. Add `@payloadcms/storage-vercel-blob` or `storage-s3` before relying on logo uploads or archived PDFs.
+- **Uploads need a private Vercel Blob store in production.** Sending an invoice archives its PDF into `media`, and a serverless filesystem is ephemeral and read-only, so the send fails there while working locally. Uploads fall back to local disk until `BLOB_READ_WRITE_TOKEN` is set. The store is **private**: an archived invoice is a legal record carrying a client's name, ABN and bank details, so anonymous reads are refused (verified — a blob URL without the token returns 403) and Payload's access control is the only way to the bytes. This needs the custom adapter in `src/lib/storage/vercel-blob-private.ts`; Payload's first-party `storage-vercel-blob` supports public stores only and cannot read a private one.
 - **`scripts/seed.ts` contains only fictional data**, because it is committed. Real business details belong in `.env` (gitignored) or entered through the admin panel.
 - Nothing here is tax advice. The GST rules encoded are the published ATO ones; cross-border treatment is worth an accountant's twenty minutes.
 

@@ -77,11 +77,22 @@ invoices with an enforced lifecycle and an immutable audit trail; atomic per-own
 invoice numbering continuing an existing external series; PDF rendering; recurring
 services with cost tracking and margin; an idempotent billing run available as both
 a command and a scheduled endpoint; renewal warnings; GST posture frozen per
-document at issue.
+document at issue; email delivery whose success is judged by a provider message id
+rather than by configuration; payments and part payments with automatic settlement;
+prepared-outbox reminders and receipts; a daily overdue sweep; private object
+storage for archived PDFs; two operator surfaces — the archive and the worklist.
 
-**Planned, not built:** email delivery and due-date reminders; payments and part
-payments; a dashboard; quotes and quote-to-invoice conversion; projects, kanban and
-time tracking; the client portal.
+**The two surfaces.** `/` is the archive, spined by client: what is on record.
+`/today` is the worklist: what needs a decision, ranked by consequence rather than
+date, with the action on the row. An unbilled recurring period outranks an overdue
+invoice there, because late money is recoverable and unbilled money is not — which
+is the operator's stated success criterion (*never miss recurring revenue*) encoded
+as an ordering. Reminders are **composed automatically but never sent
+automatically**: the sweep writes the email, a button sends it. That split was an
+explicit request and it is a product commitment, not an implementation detail.
+
+**Planned, not built:** quotes and quote-to-invoice conversion; projects, kanban and
+time tracking; the client portal beyond the read-only share link; web push.
 
 **Durable constraints:**
 
@@ -97,8 +108,10 @@ time tracking; the client portal.
   option of other freelancers using this later, without committing now. Avoid
   one-way doors: no design that assumes exactly one user forever, and no self-serve
   signup, plan management or onboarding built speculatively.
-- **File uploads require object storage** before logos or archived PDFs work in
-  production. Not yet configured.
+- **Archived PDFs live in private object storage.** An archived invoice carries a
+  client's name, ABN and bank details, so the store refuses anonymous reads and
+  Payload's access control is the only route to the bytes. This needs a custom
+  adapter: the first-party Vercel Blob adapter supports public stores only.
 - **Scheduled work is best-effort.** The production scheduler can fire twice or skip
   a day, so anything that bills or notifies must be idempotent and self-healing.
 

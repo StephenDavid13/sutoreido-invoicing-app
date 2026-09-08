@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import React from 'react'
 
 import { ArchiveSearch } from '@/components/archive/archive-search'
+import { Header } from '@/components/shell/header'
 import { Docket } from '@/components/archive/docket'
 import { MatterRail } from '@/components/archive/matter-rail'
 import { Owing, Standing } from '@/components/archive/standing'
@@ -108,17 +109,7 @@ export default async function ArchivePage({ searchParams }: Params) {
 
   return (
     <div className="min-h-screen">
-      <header className="border-rule flex h-[60px] items-center justify-between border-b px-5">
-        <Link href="/" className="text-ink text-[15px] font-semibold tracking-[0.02em]">
-          Sutoreido
-        </Link>
-        <Link
-          href="/admin"
-          className="text-ink-2 hover:text-ink text-[12px] font-semibold uppercase tracking-[0.12em] transition-colors"
-        >
-          Back office
-        </Link>
-      </header>
+      <Header current="archive" />
 
       {/*
         Above the split on purpose. Inside the rail it disappeared on mobile the

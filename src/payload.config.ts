@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url'
 
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { cloudStoragePlugin } from '@payloadcms/plugin-cloud-storage'
 import { buildConfig } from 'payload'
 import sharp from 'sharp'
 
@@ -21,12 +22,20 @@ import { ServiceBillings } from '@/collections/service-billings'
 import { Services } from '@/collections/services'
 import { Users } from '@/collections/users'
 import { requireConnectionString } from '@/lib/db/connection-string'
+import { vercelBlobPrivateAdapter } from '@/lib/storage/vercel-blob-private'
 import { buildEmailAdapter } from '@/lib/email/adapter'
 import { BusinessSettings } from '@/globals/business-settings'
 import { InvoiceDefaults } from '@/globals/invoice-defaults'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+/**
+ * Uploads fall back to local disk without a token, so a fresh clone and offline
+ * dev both work untouched. Setting this locally means dev uploads land in the
+ * same store as production.
+ */
+const blobIsConfigured = Boolean(process.env.BLOB_READ_WRITE_TOKEN)
 
 export default buildConfig({
   // -------------------------------------------------------------------- routes
@@ -70,6 +79,37 @@ export default buildConfig({
   ],
 
   globals: [BusinessSettings, InvoiceDefaults],
+
+  plugins: [
+    // ---------------------------------------------------------------- uploads
+    // Vercel's filesystem is read-only, so `upload.staticDir` cannot work in
+    // production: archiving the rendered PDF is part of sending an invoice, so
+    // without object storage the send fails on deploy while working locally.
+    //
+    // A PRIVATE Vercel Blob store, via our own adapter. Payload's first-party
+    // `storage-vercel-blob` supports public stores only and cannot read a
+    // private one — see src/lib/storage/vercel-blob-private.ts for exactly
+    // where and why. The store refuses anonymous reads, and Payload's access
+    // control on the media collection is the only way to the bytes.
+    cloudStoragePlugin({
+      enabled: blobIsConfigured,
+      collections: {
+        media: {
+          adapter: blobIsConfigured
+            ? vercelBlobPrivateAdapter({ token: process.env.BLOB_READ_WRITE_TOKEN as string })
+            : null,
+          disableLocalStorage: blobIsConfigured,
+        },
+      },
+
+      // Keeps the adapter's `prefix` field out of the "only present when
+      // configured" trap, which would give local and production different
+      // schemas and fail a deploy on a column no migration created. Verified
+      // that migrate:create reports no schema change either way; set because
+      // the failure it prevents is silent, and v4 makes it the default.
+      alwaysInsertFields: true,
+    }),
+  ],
 
   editor: lexicalEditor(),
 

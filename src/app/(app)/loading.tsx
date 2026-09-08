@@ -10,13 +10,13 @@ import React from 'react'
 export default function ArchiveLoading() {
   return (
     <div className="min-h-screen">
-      <div className="border-rule-strong flex h-[60px] items-center border-b px-5">
+      <div className="border-rule flex h-[60px] items-center border-b px-5">
         <span className="text-ink text-[15px] font-semibold tracking-[0.02em]">Sutoreido</span>
       </div>
 
       <div className="flex min-h-[calc(100vh-60px)] flex-col md:flex-row">
-        <div className="border-rule-strong shrink-0 border-b md:h-[calc(100vh-60px)] md:w-[20rem] md:border-b-0 md:border-r">
-          <div className="border-rule-strong border-b px-4 py-3">
+        <div className="border-rule shrink-0 border-b md:h-[calc(100vh-60px)] md:w-[20rem] md:border-b-0 md:border-r">
+          <div className="border-rule border-b px-4 py-3">
             <div className="bg-bench-lip h-[19px] w-32" />
           </div>
           {Array.from({ length: 5 }).map((_, index) => (
@@ -28,7 +28,7 @@ export default function ArchiveLoading() {
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="border-rule-strong border-b px-5 py-7 md:px-8 md:py-9">
+          <div className="border-rule border-b px-5 py-7 md:px-8 md:py-9">
             <div className="bg-bench-lip h-[34px] w-64" />
             <div className="bg-bench-course mt-4 h-[15px] w-80" />
           </div>

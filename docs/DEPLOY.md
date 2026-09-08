@@ -17,9 +17,10 @@ migrations. Mixing the two on one database triggers a data-loss warning, and
 pointing `push` at production can drop tables. Use a separate database for
 production, always.
 
-**Uploads will not work until you add a storage adapter.** The `media` collection
-writes to the local filesystem, which on Vercel is ephemeral and read-only. Everything
-else — invoices, PDFs on demand, the billing run — works without it. See step 8.
+**Uploads need a Blob store before you can send an invoice.** Sending archives the
+rendered PDF into `media`, and without object storage that write hits Vercel's
+read-only filesystem and the send fails — while working perfectly on your machine.
+The adapter is already wired; it needs `BLOB_READ_WRITE_TOKEN`. See step 8.
 
 ---
 
@@ -106,6 +107,7 @@ database):
 | `EMAIL_FROM` | an address on your **verified** Resend domain, e.g. `invoices@invoices.stephendavid.dev`. Mail only sends when this AND the key are set. |
 | `EMAIL_FROM_NAME` | optional display name |
 | `EMAIL_REDIRECT_TO` | **safety guard.** While set, every message goes here instead of the real recipient, with the intended address in the subject. Leave it set until you have watched a full send. |
+| `BLOB_READ_WRITE_TOKEN` | created by the Vercel Blob integration. Keep the store **private** — see step 8. |
 
 Generate the secrets:
 
@@ -199,18 +201,46 @@ Then in the admin: create a client, create an invoice, mark it **Sent**, and cli
 **View PDF**. That exercises numbering, the state machine, the audit log and the
 renderer in one pass.
 
-## 8. Uploads (required before using the media collection)
+## 8. Uploads — Vercel Blob (required before sending an invoice)
 
-Pick one:
+Sending an invoice archives its rendered PDF into `media`. Uploads stay on local
+disk until `BLOB_READ_WRITE_TOKEN` is set, so a fresh clone and offline dev both
+work untouched.
 
-```bash
-npm i @payloadcms/storage-vercel-blob      # simplest; needs BLOB_READ_WRITE_TOKEN
-# or
-npm i @payloadcms/storage-s3               # S3, R2, or any S3-compatible store
-```
+1. Vercel → Project → **Storage** → create a **Blob** store.
+2. **Keep it private.** An archived invoice carries a client's name, ABN and bank
+   details, and a private store refuses anonymous reads outright.
+3. Connect the store to the project; Vercel injects `BLOB_READ_WRITE_TOKEN`.
+4. Copy it into your local `.env` too, or leave it out to keep dev uploads on disk.
 
-Then add the plugin to `src/payload.config.ts` targeting the `media` collection.
-Until you do, uploading a logo or archiving a PDF will fail in production.
+### This uses our own adapter, deliberately
+
+`src/lib/storage/vercel-blob-private.ts`, wired through `cloudStoragePlugin`.
+**Do not replace it with `@payloadcms/storage-vercel-blob`** — that adapter cannot
+use a private store, for two independent reasons:
+
+- Its `access` option is typed `'public'` and nothing else, at 3.87.1 and at the
+  latest stable 3.88.0, so a private store rejects its uploads with
+  `Cannot use public access on a private store`.
+- Its read path calls `head(url, { token })` for metadata but then fetches the
+  bytes with a plain unauthenticated `fetch` of
+  `<store>.public.blob.vercel-storage.com`. A private store answers 403, and the
+  `!response.ok` branch turns that into an empty `204` — a silently blank PDF
+  rather than an error.
+
+Neither is a limit on the token's authority. `@vercel/blob` supports private
+blobs fully: `get(pathname, { access: 'private', token })` streams the bytes. Our
+adapter is that call plus the upload and delete around it, addressing blobs by
+pathname so no public base URL is ever constructed.
+
+`generateURL` is intentionally not implemented, so `media.url` stays Payload's
+own access-controlled route and a raw blob URL cannot leak into an API response.
+For the same reason `disablePayloadAccessControl` must stay unset.
+
+Verified end to end against a real private store: upload succeeds, `media.url` is
+`/payload-api/media/file/…`, the authenticated read returns byte-identical
+content, an anonymous fetch of the blob URL returns **403**, and delete removes
+the blob. Re-run those checks after any Payload or `@vercel/blob` upgrade.
 
 ## 9. The scheduled billing run
 
