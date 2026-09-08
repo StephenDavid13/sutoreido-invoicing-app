@@ -62,6 +62,27 @@ export function businessIdentityGaps(settings: BusinessSetting | null | undefine
   return gaps
 }
 
+/**
+ * The footer, when `invoice-defaults` does not specify one.
+ *
+ * A footer that renders nothing unless a field nobody has opened happens to be
+ * filled in is a trap: the setting exists, looks configured, and produces a
+ * blank strip. Composing from Business Settings means a printed page always
+ * says who issued it, which is what a footer on an invoice is for.
+ *
+ * Bank details are deliberately absent — their placement is governed by
+ * `bankDetailsPlacement`, and putting them here would print them twice.
+ */
+function composedFooter(settings: BusinessSetting | null | undefined): string | null {
+  const parts = [
+    settings?.legalName || settings?.tradingName || null,
+    settings?.abn ? `ABN ${formatAbn(settings.abn)}` : null,
+    settings?.website || settings?.email || null,
+  ].filter((part): part is string => Boolean(part && String(part).trim()))
+
+  return parts.length > 0 ? parts.join('   ·   ') : null
+}
+
 function addressText(address: Client['address'] | BusinessSetting['address']): string | null {
   if (!address) return null
 
@@ -187,7 +208,7 @@ export function buildInvoicePdfModel(args: {
     notes: invoice.notes ?? null,
     terms: terms || null,
     closingLine: defaults.closingLine ?? null,
-    footerLine: defaults.footerLine ?? null,
+    footerLine: defaults.footerLine?.trim() || composedFooter(settings),
     tableStyle: {
       gridBorders: defaults.tableStyle?.gridBorders ?? true,
       shadeBodyRows: defaults.tableStyle?.shadeBodyRows ?? true,

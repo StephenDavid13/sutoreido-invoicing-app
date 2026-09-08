@@ -281,7 +281,7 @@ export interface Invoice {
    */
   invoiceNumber?: number | null;
   /**
-   * The printed form, e.g. "#6" or "INV-006", built from the numbering settings. Stored rather than virtual so it is searchable and sortable — Payload virtual fields are neither in Postgres.
+   * The printed form, e.g. "#6" or "INV-006". Filled in from the numbering settings when the invoice is issued, and editable — type your own to override it, for a legacy series or a credit note. Once it holds anything other than "Draft" nothing overwrites it, so changing the numbering settings later cannot rewrite a document you have already sent.
    */
   displayNumber?: string | null;
   status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
@@ -1430,11 +1430,11 @@ export interface InvoiceDefault {
    */
   defaultTermsTemplate: string;
   /**
-   * Sits in the content flow, left-aligned, after the terms.
+   * Optional. Sits in the content flow, left-aligned, after the terms. Empty by default — the footer below carries the business identity instead.
    */
   closingLine?: string | null;
   /**
-   * Optional centred footer, repeated on every page. Left empty on purpose — the closing line above already thanks the client, so a footer saying the same thing read as duplication. Fill this in only for something different, e.g. a website or ABN reminder.
+   * Centred footer, repeated on every page. Leave it empty and the document composes one from Business Settings — your name, ABN and contact — so a printed page always identifies who issued it. Type something here to use that instead.
    */
   footerLine?: string | null;
   /**

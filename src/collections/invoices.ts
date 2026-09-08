@@ -93,9 +93,49 @@ export const Invoices: CollectionConfig = {
       type: 'text',
       index: true,
       admin: {
-        readOnly: true,
         description:
-          'The printed form, e.g. "#6" or "INV-006", built from the numbering settings. Stored rather than virtual so it is searchable and sortable — Payload virtual fields are neither in Postgres.',
+          'The printed form, e.g. "#6" or "INV-006". Filled in from the numbering settings when the invoice is issued, and editable — type your own to override it, for a legacy series or a credit note. Once it holds anything other than "Draft" nothing overwrites it, so changing the numbering settings later cannot rewrite a document you have already sent.',
+      },
+      /**
+       * Rejects a display number already used by another of this owner's
+       * invoices. The integer `invoiceNumber` is the real sequence and stays
+       * gapless on its own, but this is the number a client quotes back and the
+       * ATO reads, and two invoices printing the same one is a genuine problem.
+       *
+       * Drafts are skipped: they all carry the literal "Draft" until issued.
+       */
+      validate: async (value: unknown, options: unknown) => {
+        const { req, id, data } = options as {
+          req?: { payload?: import('payload').Payload; user?: { id: unknown } }
+          id?: unknown
+          data?: { owner?: unknown }
+        }
+        const text = typeof value === 'string' ? value.trim() : ''
+        if (!text || text === 'Draft' || !req?.payload) return true
+
+        const ownerRaw = data?.owner ?? req.user?.id
+        const owner =
+          ownerRaw && typeof ownerRaw === 'object' && 'id' in ownerRaw
+            ? (ownerRaw as { id: unknown }).id
+            : ownerRaw
+        if (owner === undefined || owner === null) return true
+
+        const clash = await req.payload.find({
+          collection: 'invoices',
+          where: {
+            and: [
+              { owner: { equals: owner } },
+              { displayNumber: { equals: text } },
+              ...(id ? [{ id: { not_equals: id } }] : []),
+            ],
+          },
+          limit: 1,
+          depth: 0,
+        })
+        if (clash.docs.length > 0) {
+          return `Invoice number "${text}" is already used by another invoice. Two invoices must not print the same number.`
+        }
+        return true
       },
     },
     {

@@ -120,10 +120,14 @@ export const InvoiceDefaults: GlobalConfig = {
       name: 'closingLine',
       type: 'textarea',
       maxLength: 500,
-      defaultValue:
-        'Thank you for your business. If you have any questions, please contact me at your convenience.',
+      // Deliberately empty. This used to default to "Thank you for your
+      // business…", which the operator asked to have removed from the document
+      // — but leaving it as the default meant every fresh install and every
+      // re-save of this global put it straight back. An instruction about the
+      // document has to live in the default, not just in one row of data.
       admin: {
-        description: 'Sits in the content flow, left-aligned, after the terms.',
+        description:
+          'Optional. Sits in the content flow, left-aligned, after the terms. Empty by default — the footer below carries the business identity instead.',
       },
     },
     {
@@ -132,7 +136,7 @@ export const InvoiceDefaults: GlobalConfig = {
       maxLength: 200,
       admin: {
         description:
-          'Optional centred footer, repeated on every page. Left empty on purpose — the closing line above already thanks the client, so a footer saying the same thing read as duplication. Fill this in only for something different, e.g. a website or ABN reminder.',
+          'Centred footer, repeated on every page. Leave it empty and the document composes one from Business Settings — your name, ABN and contact — so a printed page always identifies who issued it. Type something here to use that instead.',
       },
     },
     {

@@ -195,17 +195,27 @@ export const mintShareToken: CollectionBeforeChangeHook = ({ data, originalDoc }
  * Only does work when the number actually changes — which is once, at
  * allocation — so the settings lookup is not paid on every save.
  */
-export const maintainDisplayNumber: CollectionBeforeChangeHook = async ({
-  data,
-  originalDoc,
-  req,
-}) => {
+export const maintainDisplayNumber: CollectionBeforeChangeHook = async ({ data, req }) => {
   const number = data.invoiceNumber
   if (number === undefined || number === null) {
     data.displayNumber = data.displayNumber ?? 'Draft'
     return data
   }
-  if (originalDoc?.invoiceNumber === number && data.displayNumber) return data
+
+  /**
+   * The field is editable, so this fills in but never overwrites.
+   *
+   * Anything other than the "Draft" placeholder is the operator's own value —
+   * a legacy series, a credit note, a number typed to match a document already
+   * out in the world — and recomputing it would silently discard that.
+   *
+   * It also protects a sent invoice: changing the prefix or padding in Business
+   * Settings must not retroactively rewrite the number on a document a client
+   * already holds, which is the same immutability rule the payable-to snapshots
+   * exist for.
+   */
+  const existing = typeof data.displayNumber === 'string' ? data.displayNumber.trim() : ''
+  if (existing && existing !== 'Draft') return data
 
   const settings = await req.payload.findGlobal({ slug: 'business-settings', req, depth: 0 })
   const prefix = settings?.numberPrefix ?? ''
