@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 
 import { getSession } from '@/lib/auth/dal'
-import { buildInvoicePdfModel } from '@/lib/pdf/build-invoice-model'
+import { buildInvoicePdfModel, businessIdentityGaps } from '@/lib/pdf/build-invoice-model'
 import { renderInvoicePdf } from '@/lib/pdf/render'
 import type { BankAccount, BusinessSetting, Client, Invoice, InvoiceDefault } from '@/payload-types'
 
@@ -60,19 +60,49 @@ export async function GET(
     payload.findGlobal({ slug: 'invoice-defaults', depth: 0 }) as Promise<InvoiceDefault>,
   ])
 
-  const model = buildInvoicePdfModel({
-    invoice,
-    client: client as Client,
-    bankAccount:
-      invoice.bankAccount && typeof invoice.bankAccount === 'object'
-        ? (invoice.bankAccount as BankAccount)
-        : null,
-    settings,
-    defaults,
-  })
+  // An unsaved `business-settings` global is the normal state of a fresh
+  // install, and an invoice without an issuer name and ABN is not a valid
+  // Australian invoice. Say so plainly instead of rendering a document that
+  // looks finished and is not.
+  const gaps = businessIdentityGaps(settings)
+  if (gaps.length > 0) {
+    return Response.json(
+      {
+        error: `Your business details are incomplete: this invoice needs ${gaps.join(', ')}. Fill in Business Settings in the back office, then try again.`,
+        settingsUrl: '/admin/globals/business-settings',
+      },
+      { status: 409 },
+    )
+  }
 
-  const pdf = await renderInvoicePdf(model)
-  const filename = `invoice-${model.numberLabel || invoice.id}.pdf`
+  let pdf: Buffer
+  let filename: string
+  try {
+    const model = buildInvoicePdfModel({
+      invoice,
+      client: client as Client,
+      bankAccount:
+        invoice.bankAccount && typeof invoice.bankAccount === 'object'
+          ? (invoice.bankAccount as BankAccount)
+          : null,
+      settings,
+      defaults,
+    })
+    pdf = await renderInvoicePdf(model)
+    filename = `invoice-${model.numberLabel || invoice.id}.pdf`
+  } catch (error) {
+    // Without this the throw surfaced as a bare 500 with no body, which in
+    // production is indistinguishable from the function crashing. Log the real
+    // cause where it can be read, and answer with something actionable.
+    payload.logger.error({ err: error, msg: `Rendering invoice ${invoice.id} failed` })
+    return Response.json(
+      {
+        error:
+          'The PDF could not be rendered. This usually means the invoice or your business settings are incomplete — check Business Settings and the invoice defaults in the back office.',
+      },
+      { status: 500 },
+    )
+  }
 
   return new Response(new Uint8Array(pdf), {
     headers: {

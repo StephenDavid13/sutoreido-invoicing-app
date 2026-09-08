@@ -10,7 +10,7 @@ import { deliver } from '@/lib/email/deliver'
 import { InvoiceSentEmail, type InvoiceEmailModel } from '@/lib/email/templates/invoice-sent'
 import { formatMoneyExplicit } from '@/lib/money/money'
 import type { CurrencyCode } from '@/lib/money/currencies'
-import { buildInvoicePdfModel } from '@/lib/pdf/build-invoice-model'
+import { buildInvoicePdfModel, businessIdentityGaps } from '@/lib/pdf/build-invoice-model'
 import { dateDDMMYYYY } from '@/lib/pdf/format'
 import { renderInvoicePdf } from '@/lib/pdf/render'
 import type { BankAccount, BusinessSetting, Client, Invoice, InvoiceDefault } from '@/payload-types'
@@ -100,6 +100,25 @@ export async function sendInvoice(args: {
     )
   }
 
+  // The globals are loaded, and the business identity checked, BEFORE the status
+  // transition. The transition mints the invoice number, so refusing after it
+  // would burn a number on a half-configured install and leave a gap in the
+  // ATO-visible sequence — the exact failure the numbering design exists to
+  // prevent. An Australian invoice must carry its issuer and ABN, and emailing
+  // one that does not is worse than not sending at all.
+  const [settings, defaults] = await Promise.all([
+    payload.findGlobal({ slug: 'business-settings', depth: 0 }) as Promise<BusinessSetting>,
+    payload.findGlobal({ slug: 'invoice-defaults', depth: 0 }) as Promise<InvoiceDefault>,
+  ])
+
+  const identityGaps = businessIdentityGaps(settings)
+  if (identityGaps.length > 0) {
+    throw new APIError(
+      `Your business details are incomplete: an invoice needs ${identityGaps.join(', ')}. Fill in Business Settings before sending.`,
+      409,
+    )
+  }
+
   // 1. Issue it. The hooks mint the number, the share token and the GST posture.
   if (invoice.status === 'draft') {
     invoice = (await payload.update({
@@ -109,11 +128,6 @@ export async function sendInvoice(args: {
       depth: 1,
     })) as Invoice
   }
-
-  const [settings, defaults] = await Promise.all([
-    payload.findGlobal({ slug: 'business-settings', depth: 0 }) as Promise<BusinessSetting>,
-    payload.findGlobal({ slug: 'invoice-defaults', depth: 0 }) as Promise<InvoiceDefault>,
-  ])
 
   const bank =
     invoice.bankAccount && typeof invoice.bankAccount === 'object'

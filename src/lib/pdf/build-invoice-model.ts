@@ -28,6 +28,40 @@ function bankDetailsText(account: BankAccount | null | undefined): string | null
   return `Account Number: ${account.accountNumber}`
 }
 
+/**
+ * The items table to use when `invoice-defaults` has never been saved.
+ *
+ * Kept identical to the global's own `defaultValue`. A global that has not been
+ * saved once returns a document with no `columnLayout` at all, so on a fresh
+ * database this was the difference between a rendered invoice and an unhandled
+ * TypeError — every other read in this mapper was already defensive, this one
+ * was not.
+ *
+ * Defaulting is right here because the column layout is presentation. Compare
+ * businessIdentityGaps() below, where defaulting would be forgery.
+ */
+const DEFAULT_COLUMNS: PdfColumn[] = [
+  { key: 'description', label: 'Description', ratio: 5, align: 'left' },
+  { key: 'quantity', label: 'Hours', ratio: 2, align: 'right' },
+  { key: 'unitPrice', label: 'Price', ratio: 2, align: 'right' },
+  { key: 'lineTotal', label: 'Total', ratio: 2, align: 'right' },
+]
+
+/**
+ * What the business identity is missing, in words the operator can act on.
+ *
+ * These are not defaultable. An Australian invoice has to carry who is issuing
+ * it and their ABN, so inventing a placeholder would produce a document that
+ * looks valid and is not. Callers refuse to render rather than guess.
+ */
+export function businessIdentityGaps(settings: BusinessSetting | null | undefined): string[] {
+  const gaps: string[] = []
+  if (!settings?.tradingName && !settings?.legalName) gaps.push('a trading or legal name')
+  if (!settings?.abn) gaps.push('an ABN')
+  if (!settings?.email) gaps.push('a contact email')
+  return gaps
+}
+
 function addressText(address: Client['address'] | BusinessSetting['address']): string | null {
   if (!address) return null
 
@@ -80,7 +114,10 @@ export function buildInvoicePdfModel(args: {
 
   // The quantity column's label is per-invoice ("Qty" on #1, "Hours" on #5);
   // every other label comes from settings.
-  const columns: PdfColumn[] = defaults.columnLayout.map((col) => ({
+  const columns: PdfColumn[] = (defaults.columnLayout?.length
+    ? defaults.columnLayout
+    : DEFAULT_COLUMNS
+  ).map((col) => ({
     key: col.key,
     label: col.key === 'quantity' ? (invoice.qtyLabel ?? col.label) : col.label,
     ratio: col.ratio,
@@ -122,7 +159,7 @@ export function buildInvoicePdfModel(args: {
     },
     payableTo: {
       name: settings.legalName || settings.tradingName,
-      abn: formatAbn(settings.abn),
+      abn: formatAbn(settings.abn ?? ''),
       email: settings.email,
       address: addressText(settings.address),
       bankDetails: placement === 'terms' ? null : bankDetails,
